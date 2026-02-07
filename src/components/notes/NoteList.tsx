@@ -1,12 +1,56 @@
+import { useEffect, useMemo, useState } from 'react';
 import { useNoteStore } from '@/stores/noteStore.ts';
 import { NoteListItem } from './NoteListItem.tsx';
-import { LoadingSpinner } from '@/components/common/index.ts';
+import { LoadingSpinner, Button } from '@/components/common/index.ts';
 
 export function NoteList() {
   const notes = useNoteStore((s) => s.notes);
   const activeNoteId = useNoteStore((s) => s.activeNoteId);
   const setActiveNote = useNoteStore((s) => s.setActiveNote);
   const isLoading = useNoteStore((s) => s.isLoading);
+  const deleteNote = useNoteStore((s) => s.deleteNote);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const selectedCount = selectedIds.size;
+  const selectedLabel = selectedCount === 1 ? '1 selected' : `${selectedCount} selected`;
+  const allNoteIds = useMemo(() => notes.map((note) => note.id), [notes]);
+
+  useEffect(() => {
+    if (selectedIds.size === 0) return;
+    const noteIdSet = new Set(allNoteIds);
+    setSelectedIds((prev) => new Set([...prev].filter((id) => noteIdSet.has(id))));
+  }, [allNoteIds, selectedIds.size]);
+
+  const toggleSelect = (id: string, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.size === notes.length) {
+      setSelectedIds(new Set());
+      return;
+    }
+    setSelectedIds(new Set(allNoteIds));
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedIds.size === 0) return;
+    const confirmMessage = `Delete ${selectedIds.size} selected note${selectedIds.size === 1 ? '' : 's'}?`;
+    if (!window.confirm(confirmMessage)) return;
+
+    for (const id of selectedIds) {
+      await deleteNote(id);
+    }
+    setSelectedIds(new Set());
+  };
 
   if (isLoading) {
     return (
@@ -30,12 +74,36 @@ export function NoteList() {
 
   return (
     <div className="overflow-y-auto flex-1">
+      {notes.length > 0 && (
+        <div className="sticky top-0 z-10 bg-bg-sidebar dark:bg-gray-800 border-b border-border dark:border-gray-700 px-3 py-2 flex items-center gap-2">
+          <button
+            onClick={handleSelectAll}
+            className="text-[11px] uppercase tracking-wide text-text-secondary dark:text-gray-400 hover:text-text-primary"
+          >
+            {selectedIds.size === notes.length ? 'Clear all' : 'Select all'}
+          </button>
+          <span className="text-[11px] text-text-secondary dark:text-gray-400 ml-auto">
+            {selectedLabel}
+          </span>
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={handleDeleteSelected}
+            disabled={selectedIds.size === 0}
+          >
+            Delete Selected
+          </Button>
+        </div>
+      )}
       {notes.map((note) => (
         <NoteListItem
           key={note.id}
           note={note}
           isActive={note.id === activeNoteId}
           onClick={() => setActiveNote(note.id)}
+          selectable
+          selected={selectedIds.has(note.id)}
+          onSelectToggle={(checked) => toggleSelect(note.id, checked)}
         />
       ))}
     </div>
