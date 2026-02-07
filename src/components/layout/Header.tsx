@@ -12,6 +12,65 @@ export function Header() {
     createNote({ title: 'Untitled', content: '', tags: [] });
   };
 
+  const handleSeedNotes = async () => {
+    const seedNotes = [
+      {
+        title: 'Personal Knowledge System',
+        content:
+          'I want a lightweight system for capturing ideas, linking them, and turning them into useful knowledge. The focus is on quick capture, clear summaries, and easy retrieval.',
+      },
+      {
+        title: 'Hackathon Pitch Outline',
+        content:
+          'Problem: messy personal notes. Solution: AI-assisted notes with summaries and auto tags. Market: students, researchers, and product teams. Demo should show instant summaries.',
+      },
+      {
+        title: 'UX Principles For Note Apps',
+        content:
+          'Speed and low friction matter most. Users should be able to write without syntax overhead. Auto suggestions should feel helpful, not noisy. Visual hierarchy keeps focus.',
+      },
+      {
+        title: 'Project Milestones',
+        content:
+          'Week 1: MVP editor + storage. Week 2: AI summaries + tags. Week 3: auto links + graph view. Week 4: polish, onboarding, and demo prep.',
+      },
+      {
+        title: 'Feature Ideas',
+        content:
+          'Daily notes, quick capture widget, backlinks, and a graph view. Also want a list of suggested connections based on semantic similarity.',
+      },
+      {
+        title: 'Research Notes: Zettelkasten',
+        content:
+          'Zettelkasten is a method for writing and linking small notes to form a network of ideas. The value comes from connections and emergent insights.',
+      },
+      {
+        title: 'Marketing Copy Draft',
+        content:
+          'Write once, remember forever. Capture thoughts fast and let AI organize the rest. Your ideas become a connected knowledge graph.',
+      },
+      {
+        title: 'Engineering Checklist',
+        content:
+          'Add summarization service, handle API errors gracefully, and ensure data stays in IndexedDB. Test note creation and search.',
+      },
+      {
+        title: 'Customer Interview Notes',
+        content:
+          'Users feel overwhelmed by messy notes. They want a system that surfaces related ideas automatically and keeps things organized without extra effort.',
+      },
+      {
+        title: 'Demo Flow',
+        content:
+          'Create a note, watch summary + auto tags appear, then show suggested links. Finish with a short visual graph of note relationships.',
+      },
+    ];
+
+    for (const note of seedNotes) {
+      await createNote({ title: note.title, content: note.content, tags: [] });
+    }
+  };
+
   return (
     <header className="flex-shrink-0 h-12 flex items-center justify-between px-4 border-b border-border dark:border-gray-700 bg-bg-primary dark:bg-gray-900">
       <div className="flex items-center gap-3">
@@ -44,6 +103,9 @@ export function Header() {
             </svg>
           )}
         </button>
+        <Button variant="secondary" size="sm" onClick={handleSeedNotes}>
+          Seed Notes
+        </Button>
         <Button variant="primary" size="sm" onClick={handleNewNote}>
           + New Note
         </Button>

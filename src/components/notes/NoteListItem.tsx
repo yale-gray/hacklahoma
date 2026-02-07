@@ -10,6 +10,8 @@ interface NoteListItemProps {
 export function NoteListItem({ note, isActive, onClick }: NoteListItemProps) {
   const preview = note.content.split('\n')[0]?.slice(0, 80) || 'Empty note';
   const timeAgo = formatDistanceToNow(new Date(note.modifiedAt), { addSuffix: true });
+  const combinedTags = [...note.tags, ...(note.autoTags ?? [])];
+  const uniqueTags = [...new Set(combinedTags)];
 
   return (
     <button
@@ -27,7 +29,7 @@ export function NoteListItem({ note, isActive, onClick }: NoteListItemProps) {
         {preview}
       </p>
       <div className="flex items-center gap-2 mt-1.5">
-        {note.tags.slice(0, 3).map((tag) => (
+        {uniqueTags.slice(0, 3).map((tag) => (
           <span
             key={tag}
             className="inline-block px-1.5 py-0.5 text-[10px] bg-accent/10 text-accent rounded-full"

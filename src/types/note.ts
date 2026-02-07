@@ -3,6 +3,8 @@ export interface Note {
   title: string;
   content: string;
   tags: string[];
+  autoTags?: string[];
+  summary?: string;
   embedding?: number[];
   createdAt: Date;
   modifiedAt: Date;

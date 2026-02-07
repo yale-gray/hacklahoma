@@ -2,6 +2,7 @@ import { db } from '@/db/database.ts';
 import type { Note, NoteCreateInput, NoteUpdateInput, NoteLink } from '@/types/index.ts';
 import { generateNoteId } from '@/utils/idGenerator.ts';
 import { extractWikiLinks } from '@/utils/wikiLinkParser.ts';
+import { aiService } from '@/services/aiService.ts';
 
 async function syncNoteLinks(note: Note): Promise<void> {
   await db.noteLinks.where('sourceId').equals(note.id).delete();
@@ -22,14 +23,22 @@ async function syncNoteLinks(note: Note): Promise<void> {
   }
 }
 
+async function enrichNoteContent(title: string, content: string): Promise<Pick<Note, 'summary' | 'autoTags'>> {
+  const { summary, autoTags } = await aiService.summarizeAndTag(title, content);
+  return { summary, autoTags };
+}
+
 export const noteService = {
   async create(input: NoteCreateInput): Promise<Note> {
     const now = new Date();
+    const enrichment = await enrichNoteContent(input.title, input.content);
     const note: Note = {
       id: generateNoteId(now),
       title: input.title,
       content: input.content,
       tags: input.tags,
+      summary: enrichment.summary,
+      autoTags: enrichment.autoTags,
       createdAt: now,
       modifiedAt: now,
     };
@@ -46,9 +55,22 @@ export const noteService = {
     const existing = await db.notes.get(id);
     if (!existing) return undefined;
 
+    const nextTitle = input.title ?? existing.title;
+    const nextContent = input.content ?? existing.content;
+    const shouldEnrich =
+      input.title !== undefined ||
+      input.content !== undefined ||
+      !existing.summary ||
+      !(existing.autoTags && existing.autoTags.length > 0);
+    const enrichment = shouldEnrich
+      ? await enrichNoteContent(nextTitle, nextContent)
+      : { summary: existing.summary, autoTags: existing.autoTags };
+
     const updated: Note = {
       ...existing,
       ...input,
+      summary: enrichment.summary,
+      autoTags: enrichment.autoTags,
       modifiedAt: new Date(),
     };
 
@@ -73,7 +95,19 @@ export const noteService = {
   },
 
   async getAll(): Promise<Note[]> {
-    return db.notes.orderBy('modifiedAt').reverse().toArray();
+    const notes = await db.notes.orderBy('modifiedAt').reverse().toArray();
+    const enriched = await Promise.all(
+      notes.map(async (note) => {
+        if (note.summary && note.autoTags?.length) {
+          return note;
+        }
+        const enrichment = await enrichNoteContent(note.title, note.content);
+        const updated = { ...note, ...enrichment };
+        await db.notes.put(updated);
+        return updated;
+      })
+    );
+    return enriched;
   },
 
   async search(query: string): Promise<Note[]> {
@@ -83,7 +117,8 @@ export const noteService = {
         (note) =>
           note.title.toLowerCase().includes(lowerQuery) ||
           note.content.toLowerCase().includes(lowerQuery) ||
-          note.tags.some((tag) => tag.toLowerCase().includes(lowerQuery))
+          note.tags.some((tag) => tag.toLowerCase().includes(lowerQuery)) ||
+          (note.autoTags ?? []).some((tag) => tag.toLowerCase().includes(lowerQuery))
       )
       .toArray();
   },
