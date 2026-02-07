@@ -117,8 +117,7 @@ export const noteService = {
         (note) =>
           note.title.toLowerCase().includes(lowerQuery) ||
           note.content.toLowerCase().includes(lowerQuery) ||
-          note.tags.some((tag) => tag.toLowerCase().includes(lowerQuery)) ||
-          (note.autoTags ?? []).some((tag) => tag.toLowerCase().includes(lowerQuery))
+          note.tags.some((tag) => tag.toLowerCase().includes(lowerQuery))
       )
       .toArray();
   },

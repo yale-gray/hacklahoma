@@ -111,11 +111,9 @@ function generateSummary(title: string, content: string): string {
   return summary;
 }
 
-function generateAutoTags(title: string, content: string): string[] {
-  const titleTokens = tokenize(title);
+function generateAutoTags(content: string): string[] {
   const bodyTokens = tokenize(content);
   const freq = buildFrequency(bodyTokens, 1);
-  buildFrequency(titleTokens, 3, freq);
 
   const tags = pickTopKeywords(freq, 5);
   return tags;
@@ -128,8 +126,35 @@ function ensureTagCount(tags: string[], min = 3, max = 5): string[] {
   return unique;
 }
 
+function removeTitleTags(tags: string[], title: string): string[] {
+  const titleTokens = new Set(tokenize(title));
+  if (titleTokens.size === 0) return tags.filter((tag) => tag !== 'untitled');
+  return tags.filter((tag) => !titleTokens.has(tag) && tag !== 'untitled');
+}
+
+function finalizeTags(tags: string[], title: string, content: string, min = 3, max = 5): string[] {
+  const filtered = removeTitleTags(tags, title);
+  if (filtered.length >= min) {
+    return filtered.slice(0, max);
+  }
+
+  const fallback = generateAutoTags(content);
+  const combined = [...filtered];
+  for (const tag of fallback) {
+    if (combined.length >= max) break;
+    if (!combined.includes(tag) && !removeTitleTags([tag], title).length) {
+      continue;
+    }
+    if (!combined.includes(tag)) {
+      combined.push(tag);
+    }
+  }
+  return combined;
+}
+
 export const aiService = {
   async summarizeAndTag(title: string, content: string): Promise<AIEnrichment> {
+    let errorMessage = 'error generating tags from gemini';
     if (hasValidApiKey(GEMINI_API_KEY)) {
       try {
         const prompt = [
@@ -141,6 +166,7 @@ export const aiService = {
           '- autoTags: 3-5 lowercase, concise theme-level tags.',
           '- Only include tags that reflect the core topic. Avoid incidental details.',
           '- Avoid proper names, dates, or one-off specifics unless they are the core topic.',
+          '- Do not use the title words as tags; tags must come from the body content.',
           '',
           `Title: ${title || 'Untitled'}`,
           `Content: ${content || ''}`,
@@ -170,20 +196,26 @@ export const aiService = {
           const text = extractTextFromResponse(data);
           const parsed = extractJsonPayload(text);
           if (parsed?.summary) {
-            const autoTags = ensureTagCount(parsed.autoTags ?? [], 3, 5);
+            const autoTags = finalizeTags(parsed.autoTags ?? [], title, content, 3, 5);
             return {
               summary: parsed.summary.trim().slice(0, 240),
               autoTags,
             };
           }
+          errorMessage = 'error generating tags from gemini: invalid response format';
+        } else {
+          const errorText = await response.text();
+          errorMessage = `error generating tags from gemini: ${response.status} ${errorText}`.slice(0, 200);
         }
       } catch {
-        // Fall back to heuristic below.
+        errorMessage = 'error generating tags from gemini: request failed';
       }
+    } else {
+      errorMessage = 'error generating tags from gemini: missing api key';
     }
 
     const summary = generateSummary(title, content);
-    const autoTags = ensureTagCount(generateAutoTags(title, content), 3, 5);
+    const autoTags = finalizeTags(generateAutoTags(content), title, content, 3, 5);
     return { summary, autoTags };
   },
 };
