@@ -117,8 +117,15 @@ function generateAutoTags(title: string, content: string): string[] {
   const freq = buildFrequency(bodyTokens, 1);
   buildFrequency(titleTokens, 3, freq);
 
-  const tags = pickTopKeywords(freq, 6);
+  const tags = pickTopKeywords(freq, 5);
   return tags;
+}
+
+function ensureTagCount(tags: string[], min = 3, max = 5): string[] {
+  const unique = normalizeTags(tags);
+  if (unique.length <= max && unique.length >= min) return unique;
+  if (unique.length > max) return unique.slice(0, max);
+  return unique;
 }
 
 export const aiService = {
@@ -131,7 +138,9 @@ export const aiService = {
           '{"summary":"...", "autoTags":["tag1","tag2"]}',
           'Constraints:',
           '- summary: 1-2 sentences, max 240 characters.',
-          '- autoTags: 3-6 lowercase, concise topic tags.',
+          '- autoTags: 3-5 lowercase, concise theme-level tags.',
+          '- Only include tags that reflect the core topic. Avoid incidental details.',
+          '- Avoid proper names, dates, or one-off specifics unless they are the core topic.',
           '',
           `Title: ${title || 'Untitled'}`,
           `Content: ${content || ''}`,
@@ -161,7 +170,7 @@ export const aiService = {
           const text = extractTextFromResponse(data);
           const parsed = extractJsonPayload(text);
           if (parsed?.summary) {
-            const autoTags = normalizeTags(parsed.autoTags);
+            const autoTags = ensureTagCount(parsed.autoTags ?? [], 3, 5);
             return {
               summary: parsed.summary.trim().slice(0, 240),
               autoTags,
@@ -174,7 +183,7 @@ export const aiService = {
     }
 
     const summary = generateSummary(title, content);
-    const autoTags = generateAutoTags(title, content);
+    const autoTags = ensureTagCount(generateAutoTags(title, content), 3, 5);
     return { summary, autoTags };
   },
 };
