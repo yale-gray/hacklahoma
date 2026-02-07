@@ -178,7 +178,7 @@ Option B: Embeddings
 - `src/db/database.ts`
 
 ## File Structure
-zettel-neural/
+```zettel-neural/
 ├─ README.md
 ├─ index.html
 ├─ package.json
@@ -247,6 +247,7 @@ zettel-neural/
 │
 ├─ node_modules/
 └─ .git/
+```
 
 ## What Must Be Preserved
 - The notebook + chapters metaphor is core.
