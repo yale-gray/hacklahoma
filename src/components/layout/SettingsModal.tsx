@@ -27,16 +27,16 @@ export function SettingsModal() {
       <button
         type="button"
         aria-label="Close settings"
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0 bg-black/60"
         onClick={closeSettings}
       />
-      <div className="relative w-full max-w-md rounded-lg border border-border dark:border-gray-700 bg-bg-primary dark:bg-gray-900 shadow-xl">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border dark:border-gray-700">
-          <h2 className="text-sm font-semibold text-text-primary dark:text-gray-100">Settings</h2>
+      <div className="relative w-full max-w-md rounded-lg border-2 border-[#d4a574] bg-[#2d1f14] shadow-2xl">
+        <div className="flex items-center justify-between px-6 py-4 border-b-2 border-[#d4a574]/30">
+          <h2 className="text-lg font-serif font-bold text-[#e8dcc4]">Settings</h2>
           <button
             type="button"
             onClick={closeSettings}
-            className="p-1.5 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-secondary dark:hover:bg-gray-700"
+            className="p-1.5 rounded text-[#b8a88a] hover:text-[#d4a574] hover:bg-[#1a1612] transition-colors"
             aria-label="Close"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -45,25 +45,25 @@ export function SettingsModal() {
             </svg>
           </button>
         </div>
-        <div className="p-4 space-y-3 text-sm text-text-secondary dark:text-gray-300">
+        <div className="p-6 space-y-4 text-sm text-[#e8dcc4]">
           <div>
-            <label htmlFor="grouping-min-size" className="block text-xs uppercase tracking-wide text-text-secondary dark:text-gray-400">
+            <label htmlFor="grouping-min-size" className="block text-xs font-serif uppercase tracking-wide text-[#d4a574] mb-2">
               Minimum Grouping Size
             </label>
-            <p className="text-xs text-text-secondary/70 mt-1">
+            <p className="text-xs text-[#b8a88a] mt-1 mb-3 font-serif">
               A tag becomes a grouping after it appears on this many notes.
             </p>
+            <input
+              id="grouping-min-size"
+              type="number"
+              min={1}
+              value={localMinSize}
+              onChange={(e) => setLocalMinSize(Number(e.target.value))}
+              className="w-full px-3 py-2 text-sm font-serif rounded bg-[#1a1612] border-2 border-[#d4a574]/30 focus:outline-none focus:ring-2 focus:ring-[#d4a574] focus:border-[#d4a574] text-[#e8dcc4] shadow-inner"
+            />
           </div>
-          <input
-            id="grouping-min-size"
-            type="number"
-            min={1}
-            value={localMinSize}
-            onChange={(e) => setLocalMinSize(Number(e.target.value))}
-            className="w-full px-3 py-2 text-sm rounded-md bg-bg-secondary dark:bg-gray-800 border border-border dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-accent text-text-primary dark:text-gray-100"
-          />
         </div>
-        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border dark:border-gray-700">
+        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t-2 border-[#d4a574]/30">
           <Button variant="secondary" size="sm" onClick={closeSettings}>
             Cancel
           </Button>

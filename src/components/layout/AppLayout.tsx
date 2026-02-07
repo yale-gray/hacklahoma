@@ -12,11 +12,11 @@ export function AppLayout({ children }: AppLayoutProps) {
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
 
   return (
-    <div className="h-full flex flex-col bg-bg-primary dark:bg-gray-900">
+    <div className="h-full flex flex-col bg-[#1a1612]">
       <Header />
       <div className="flex flex-1 overflow-hidden">
         {sidebarOpen && <Sidebar />}
-        <main className="flex-1 overflow-hidden">
+        <main className="flex-1 overflow-hidden bg-[#1a1612]">
           {children}
         </main>
       </div>

@@ -17,6 +17,7 @@ export function NoteEditor({ note }: NoteEditorProps) {
   const [content, setContent] = useState(note.content);
   const [tags, setTags] = useState(note.tags);
   const [isSaving, setIsSaving] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
   const updateNote = useNoteStore((s) => s.updateNote);
   const deleteNote = useNoteStore((s) => s.deleteNote);
   const isInitialMount = useRef(true);
@@ -26,8 +27,21 @@ export function NoteEditor({ note }: NoteEditorProps) {
     setTitle(note.title);
     setContent(note.content);
     setTags(note.tags);
+    setShowColorPicker(false);
     isInitialMount.current = true;
   }, [note.id, note.title, note.content, note.tags]);
+
+  // Close color picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (showColorPicker && !target.closest('.color-picker-container')) {
+        setShowColorPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showColorPicker]);
 
   const debouncedTitle = useDebounce(title, 500);
   const debouncedContent = useDebounce(content, 500);
@@ -75,25 +89,69 @@ export function NoteEditor({ note }: NoteEditorProps) {
     }
   }, [note.id, deleteNote]);
 
+  const handleColorChange = useCallback(
+    (colorIndex: number) => {
+      updateNote(note.id, { bookColor: colorIndex });
+      setShowColorPicker(false);
+    },
+    [note.id, updateNote]
+  );
+
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-[#1a1612]">
       {/* Header */}
-      <div className="flex-shrink-0 border-b border-border dark:border-gray-700 px-4 py-3">
-        <div className="flex items-center justify-between mb-2">
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Note title..."
-            className="text-lg font-semibold bg-transparent focus:outline-none text-text-primary dark:text-gray-100 flex-1 mr-4"
-          />
-          <div className="flex items-center gap-2">
+      <div className="flex-shrink-0 border-b-2 border-[#d4a574]/30 px-6 py-4 bg-[#1a0f0a]">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3 flex-1">
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Untitled Manuscript..."
+              className="text-xl font-serif font-bold bg-transparent focus:outline-none text-[#e8dcc4] flex-1 placeholder-[#b8a88a]/50"
+            />
+            <div className="relative color-picker-container">
+              <button
+                onClick={() => setShowColorPicker(!showColorPicker)}
+                className="w-8 h-8 rounded-full border-2 border-[#d4a574]/50 hover:border-[#d4a574] transition-colors shadow-md"
+                style={{
+                  background: [
+                    'linear-gradient(90deg, #4a3426 0%, #5a4436 50%, #4a3426 100%)',
+                    'linear-gradient(90deg, #2d4a3a 0%, #3d5a4a 50%, #2d4a3a 100%)',
+                    'linear-gradient(90deg, #3a2a4a 0%, #4a3a5a 50%, #3a2a4a 100%)',
+                    'linear-gradient(90deg, #4a3a2a 0%, #5a4a3a 50%, #4a3a2a 100%)',
+                    'linear-gradient(90deg, #1a2a3a 0%, #2a3a4a 50%, #1a2a3a 100%)',
+                    'linear-gradient(90deg, #5b3413 0%, #6b4423 50%, #5b3413 100%)',
+                  ][note.bookColor ?? (note.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 6)]
+                }}
+              />
+              {showColorPicker && (
+                <div className="absolute top-full mt-2 right-0 bg-[#2d1f14] border-2 border-[#d4a574]/50 rounded-lg p-3 shadow-xl z-50 flex gap-2">
+                  {[0, 1, 2, 3, 4, 5].map((colorIdx) => (
+                    <button
+                      key={colorIdx}
+                      onClick={() => handleColorChange(colorIdx)}
+                      className="w-8 h-8 rounded-full border-2 border-[#d4a574]/30 hover:border-[#d4a574] hover:scale-110 transition-all"
+                      style={{
+                        background: [
+                          'linear-gradient(90deg, #4a3426 0%, #5a4436 50%, #4a3426 100%)',
+                          'linear-gradient(90deg, #2d4a3a 0%, #3d5a4a 50%, #2d4a3a 100%)',
+                          'linear-gradient(90deg, #3a2a4a 0%, #4a3a5a 50%, #3a2a4a 100%)',
+                          'linear-gradient(90deg, #4a3a2a 0%, #5a4a3a 50%, #4a3a2a 100%)',
+                          'linear-gradient(90deg, #1a2a3a 0%, #2a3a4a 50%, #1a2a3a 100%)',
+                          'linear-gradient(90deg, #5b3413 0%, #6b4423 50%, #5b3413 100%)',
+                        ][colorIdx]
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-3 ml-6">
             {isSaving && (
-              <span className="text-xs text-text-secondary">Saving...</span>
+              <span className="text-xs text-[#d4a574] font-serif italic">Saving...</span>
             )}
-            <span className="text-xs text-text-secondary dark:text-gray-500 font-mono">
-              {note.id}
-            </span>
             <Button variant="danger" size="sm" onClick={handleDelete}>
               Delete
             </Button>
@@ -103,8 +161,8 @@ export function NoteEditor({ note }: NoteEditorProps) {
           <div className="flex-1 space-y-2">
             <TagInput tags={tags} onChange={handleTagChange} />
             {note.autoTags && note.autoTags.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5 text-xs text-text-secondary dark:text-gray-400">
-                <span className="text-[10px] uppercase tracking-wide">Suggested tags</span>
+              <div className="flex flex-wrap items-center gap-1.5 text-xs text-[#b8a88a]">
+                <span className="text-[10px] uppercase tracking-wide font-serif">Suggested tags</span>
                 {note.autoTags.map((tag) => {
                   const isSelected = tags.includes(tag);
                   return (
@@ -112,10 +170,10 @@ export function NoteEditor({ note }: NoteEditorProps) {
                       key={tag}
                       type="button"
                       onClick={() => handleSuggestedTagClick(tag)}
-                      className={`inline-flex items-center px-2 py-0.5 text-[10px] rounded-full border transition-colors ${
+                      className={`inline-flex items-center px-2 py-0.5 text-[10px] font-serif rounded border transition-colors ${
                         isSelected
-                          ? 'border-accent bg-accent/20 text-accent'
-                          : 'border-accent/50 text-accent hover:border-accent'
+                          ? 'border-[#d4a574] bg-[#d4a574]/20 text-[#d4a574]'
+                          : 'border-[#d4a574]/50 text-[#d4a574] hover:border-[#d4a574]'
                       }`}
                       title={isSelected ? 'Already added' : 'Add tag'}
                     >
@@ -130,18 +188,20 @@ export function NoteEditor({ note }: NoteEditorProps) {
       </div>
 
       {/* Editor / Preview */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden relative">
+        <div className="book-binding-shadow"></div>
         <Allotment>
           <Allotment.Pane>
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="Start writing in Markdown..."
-              className="w-full h-full p-4 bg-bg-primary dark:bg-gray-900 text-text-primary dark:text-gray-100 font-mono text-sm resize-none focus:outline-none"
+              placeholder="Begin your manuscript..."
+              className="w-full h-full px-12 py-8 book-page book-page-left text-[#3d2817] font-serif text-sm leading-loose resize-none focus:outline-none placeholder-[#8b7355]/40"
+              style={{ color: '#3d2817' }}
             />
           </Allotment.Pane>
           <Allotment.Pane>
-            <div className="h-full overflow-y-auto border-l border-border dark:border-gray-700 bg-bg-secondary dark:bg-gray-800">
+            <div className="h-full overflow-y-auto book-page book-page-right px-12 py-8">
               <MarkdownPreview content={content} />
             </div>
           </Allotment.Pane>

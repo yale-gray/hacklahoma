@@ -11,7 +11,7 @@ export function MarkdownPreview({ content }: MarkdownPreviewProps) {
   const setActiveNote = useNoteStore((s) => s.setActiveNote);
 
   return (
-    <div className="prose max-w-none p-4 overflow-y-auto h-full dark:text-gray-200">
+    <div className="prose max-w-none">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         children={content}

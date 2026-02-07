@@ -18,50 +18,52 @@ export function NoteListItem({
   selected = false,
   onSelectToggle,
 }: NoteListItemProps) {
-  const preview = note.content.split('\n')[0]?.slice(0, 80) || 'Empty note';
   const timeAgo = formatDistanceToNow(new Date(note.modifiedAt), { addSuffix: true });
+  const combinedTags = [...note.tags, ...(note.autoTags ?? [])];
+  const uniqueTags = [...new Set(combinedTags)];
+
+  // Use custom color if set, otherwise assign a consistent color based on note ID
+  const colorIndex = note.bookColor !== undefined
+    ? note.bookColor
+    : note.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 6;
 
   return (
-    <div
-      className={`w-full border-b border-border dark:border-gray-700 transition-colors ${
-        isActive
-          ? 'bg-accent/10 border-l-2 border-l-accent'
-          : 'hover:bg-bg-secondary dark:hover:bg-gray-700'
-      }`}
-    >
-      <div className="flex items-start gap-2 px-3 py-2.5">
-        {selectable && (
-          <input
-            type="checkbox"
-            checked={selected}
-            onChange={(e) => onSelectToggle?.(e.target.checked)}
-            onClick={(e) => e.stopPropagation()}
-            className="mt-1 h-3.5 w-3.5 rounded border-border bg-bg-primary dark:bg-gray-800 text-accent focus:ring-accent"
-            aria-label={`Select note ${note.title || 'Untitled'}`}
-          />
-        )}
-        <button onClick={onClick} className="text-left flex-1">
-          <h3 className="font-medium text-sm text-text-primary dark:text-gray-100 truncate">
+    <div className="flex items-start gap-2 px-2 mb-3">
+      {selectable && (
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={(e) => onSelectToggle?.(e.target.checked)}
+          onClick={(e) => e.stopPropagation()}
+          className="mt-2 h-3.5 w-3.5 rounded border-[#d4a574]/50 bg-[#1a1612] text-[#d4a574] focus:ring-[#d4a574]"
+          aria-label={`Select note ${note.title || 'Untitled'}`}
+        />
+      )}
+      <button
+        onClick={onClick}
+        className={`group w-full text-left px-3 py-2.5 h-[70px] book-spine book-spine-color-${colorIndex} ${
+          isActive ? 'active' : ''
+        }`}
+      >
+        <div className="relative z-10">
+          <h3 className="font-serif font-semibold text-xs text-[#f4e8d0] truncate tracking-wide"
+              style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.5)' }}>
             {note.title || 'Untitled'}
           </h3>
-          <p className="text-xs text-text-secondary dark:text-gray-400 truncate mt-0.5">
-            {preview}
-          </p>
-          <div className="flex items-center gap-2 mt-1.5">
-            {note.tags.slice(0, 3).map((tag) => (
-              <span
-                key={tag}
-                className="inline-block px-1.5 py-0.5 text-[10px] bg-accent/10 text-accent rounded-full"
-              >
-                {tag}
-              </span>
-            ))}
-            <span className="text-[10px] text-text-secondary dark:text-gray-500 ml-auto">
-              {timeAgo}
-            </span>
-          </div>
-        </button>
-      </div>
+          {uniqueTags.length > 0 && (
+            <div className="hidden group-hover:flex flex-wrap gap-1 mt-2">
+              {uniqueTags.slice(0, 3).map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-block px-1.5 py-0.5 text-[8px] font-serif bg-black/40 text-[#d4a574] rounded border border-[#d4a574]/40"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </button>
     </div>
   );
 }

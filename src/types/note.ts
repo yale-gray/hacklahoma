@@ -6,6 +6,7 @@ export interface Note {
   autoTags?: string[];
   summary?: string;
   embedding?: number[];
+  bookColor?: number; // 0-5 for color variations
   createdAt: Date;
   modifiedAt: Date;
 }
@@ -17,4 +18,4 @@ export interface NoteLink {
 }
 
 export type NoteCreateInput = Pick<Note, 'title' | 'content' | 'tags'>;
-export type NoteUpdateInput = Partial<Pick<Note, 'title' | 'content' | 'tags'>>;
+export type NoteUpdateInput = Partial<Pick<Note, 'title' | 'content' | 'tags' | 'bookColor'>>;
