@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useNoteStore } from '@/stores/noteStore.ts';
+import { useUIStore } from '@/stores/uiStore.ts';
 import { NoteListItem } from './NoteListItem.tsx';
 import { LoadingSpinner } from '@/components/common/index.ts';
 
@@ -7,6 +9,8 @@ export function TagGroupList() {
   const activeNoteId = useNoteStore((s) => s.activeNoteId);
   const setActiveNote = useNoteStore((s) => s.setActiveNote);
   const isLoading = useNoteStore((s) => s.isLoading);
+  const groupingMinSize = useUIStore((s) => s.groupingMinSize);
+  const [collapsedTags, setCollapsedTags] = useState<Record<string, boolean>>({});
 
   if (isLoading) {
     return (
@@ -29,13 +33,9 @@ export function TagGroupList() {
   }
 
   const tagMap = new Map<string, typeof notes>();
-  const untagged: typeof notes = [];
 
   for (const note of notes) {
-    if (!note.tags.length) {
-      untagged.push(note);
-      continue;
-    }
+    if (!note.tags.length) continue;
     for (const tag of note.tags) {
       const existing = tagMap.get(tag);
       if (existing) {
@@ -46,42 +46,47 @@ export function TagGroupList() {
     }
   }
 
-  const sortedTags = [...tagMap.keys()].sort((a, b) => a.localeCompare(b));
+  const sortedTags = [...tagMap.keys()]
+    .filter((tag) => (tagMap.get(tag)?.length ?? 0) >= groupingMinSize)
+    .sort((a, b) => a.localeCompare(b));
+
+  const toggleTag = (tag: string) => {
+    setCollapsedTags((prev) => ({ ...prev, [tag]: !prev[tag] }));
+  };
 
   if (sortedTags.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
-        <p className="text-sm text-text-secondary">No tag groupings yet</p>
-        <p className="text-xs text-text-secondary/70 mt-1">Add tags to notes to create groups</p>
+        <p className="text-sm text-text-secondary">No groupings yet</p>
+        <p className="text-xs text-text-secondary/70 mt-1">
+          Tags appear after they are used on at least {groupingMinSize} notes
+        </p>
       </div>
     );
   }
 
   return (
     <div className="overflow-y-auto flex-1">
-      {untagged.length > 0 && (
-        <div className="border-b border-border dark:border-gray-700">
-          <div className="px-3 py-2 text-[11px] uppercase tracking-wide text-text-secondary dark:text-gray-400">
-            Untagged ({untagged.length})
-          </div>
-          {untagged.map((note) => (
-            <NoteListItem
-              key={note.id}
-              note={note}
-              isActive={note.id === activeNoteId}
-              onClick={() => setActiveNote(note.id)}
-            />
-          ))}
-        </div>
-      )}
       {sortedTags.map((tag) => {
         const items = tagMap.get(tag) ?? [];
+        const isCollapsed = collapsedTags[tag] ?? false;
         return (
           <div key={tag} className="border-b border-border dark:border-gray-700">
-            <div className="px-3 py-2 text-[11px] uppercase tracking-wide text-text-secondary dark:text-gray-400">
-              {tag} ({items.length})
-            </div>
-            {items.map((note) => (
+            <button
+              onClick={() => toggleTag(tag)}
+              className="w-full px-3 py-2 text-[11px] uppercase tracking-wide text-text-secondary dark:text-gray-400 flex items-center justify-between hover:text-text-primary"
+            >
+              <span>{tag} ({items.length})</span>
+              <svg
+                className={`w-3 h-3 transition-transform ${isCollapsed ? '-rotate-90' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {!isCollapsed && items.map((note) => (
               <NoteListItem
                 key={`${tag}-${note.id}`}
                 note={note}

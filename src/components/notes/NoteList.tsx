@@ -10,6 +10,7 @@ export function NoteList() {
   const isLoading = useNoteStore((s) => s.isLoading);
   const deleteNote = useNoteStore((s) => s.deleteNote);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectionMode, setSelectionMode] = useState(false);
 
   const selectedCount = selectedIds.size;
   const selectedLabel = selectedCount === 1 ? '1 selected' : `${selectedCount} selected`;
@@ -39,6 +40,16 @@ export function NoteList() {
       return;
     }
     setSelectedIds(new Set(allNoteIds));
+  };
+
+  const handleToggleSelectionMode = () => {
+    setSelectionMode((prev) => {
+      const next = !prev;
+      if (!next) {
+        setSelectedIds(new Set());
+      }
+      return next;
+    });
   };
 
   const handleDeleteSelected = async () => {
@@ -76,23 +87,48 @@ export function NoteList() {
     <div className="overflow-y-auto flex-1">
       {notes.length > 0 && (
         <div className="sticky top-0 z-10 bg-bg-sidebar dark:bg-gray-800 border-b border-border dark:border-gray-700 px-3 py-2 flex items-center gap-2">
-          <button
-            onClick={handleSelectAll}
-            className="text-[11px] uppercase tracking-wide text-text-secondary dark:text-gray-400 hover:text-text-primary"
-          >
-            {selectedIds.size === notes.length ? 'Clear all' : 'Select all'}
-          </button>
-          <span className="text-[11px] text-text-secondary dark:text-gray-400 ml-auto">
-            {selectedLabel}
-          </span>
-          <Button
-            variant="danger"
-            size="sm"
-            onClick={handleDeleteSelected}
-            disabled={selectedIds.size === 0}
-          >
-            Delete Selected
-          </Button>
+          {selectionMode ? (
+            <>
+              <button
+                onClick={handleSelectAll}
+                className="text-[11px] uppercase tracking-wide text-text-secondary dark:text-gray-400 hover:text-text-primary"
+              >
+                {selectedIds.size === notes.length ? 'Clear all' : 'Select all'}
+              </button>
+              <span className="text-[11px] text-text-secondary dark:text-gray-400 ml-auto">
+                {selectedLabel}
+              </span>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={handleDeleteSelected}
+                disabled={selectedIds.size === 0}
+              >
+                Delete Selected
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleToggleSelectionMode}
+              >
+                Done
+              </Button>
+            </>
+          ) : (
+            <>
+              <span className="text-[11px] text-text-secondary dark:text-gray-400">
+                {notes.length} note{notes.length === 1 ? '' : 's'}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleToggleSelectionMode}
+                className="ml-auto"
+              >
+                Select
+              </Button>
+            </>
+          )}
         </div>
       )}
       {notes.map((note) => (
@@ -101,9 +137,9 @@ export function NoteList() {
           note={note}
           isActive={note.id === activeNoteId}
           onClick={() => setActiveNote(note.id)}
-          selectable
-          selected={selectedIds.has(note.id)}
-          onSelectToggle={(checked) => toggleSelect(note.id, checked)}
+          selectable={selectionMode}
+          selected={selectionMode ? selectedIds.has(note.id) : false}
+          onSelectToggle={selectionMode ? (checked) => toggleSelect(note.id, checked) : undefined}
         />
       ))}
     </div>
