@@ -177,6 +177,77 @@ Option B: Embeddings
 - `src/stores/noteStore.ts`
 - `src/db/database.ts`
 
+## File Structure
+zettel-neural/
+├─ README.md
+├─ index.html
+├─ package.json
+├─ package-lock.json
+├─ .gitignore
+├─ eslint.config.js
+├─ vite.config.ts
+├─ tsconfig.json
+├─ tsconfig.app.json
+├─ tsconfig.node.json
+│
+├─ public/
+│  └─ vite.svg
+│
+├─ src/
+│  ├─ App.tsx
+│  ├─ main.tsx
+│  ├─ index.css
+│  ├─ vite-env.d.ts
+│  ├─ assets/
+│  ├─ db/
+│  │  └─ database.ts
+│  ├─ hooks/
+│  │  └─ useDebounce.ts
+│  ├─ services/
+│  │  ├─ aiService.ts
+│  │  └─ noteService.ts
+│  ├─ stores/
+│  │  ├─ noteStore.ts
+│  │  └─ uiStore.ts
+│  ├─ utils/
+│  │  ├─ idGenerator.ts
+│  │  └─ wikiLinkParser.ts
+│  ├─ types/
+│  │  ├─ ai.ts
+│  │  ├─ graph.ts
+│  │  ├─ index.ts
+│  │  └─ note.ts
+│  └─ components/
+│     ├─ common/
+│     │  ├─ Button.tsx
+│     │  ├─ ErrorBoundary.tsx
+│     │  ├─ LoadingSpinner.tsx
+│     │  ├─ Modal.tsx
+│     │  └─ index.ts
+│     ├─ layout/
+│     │  ├─ AppLayout.tsx
+│     │  ├─ Header.tsx
+│     │  ├─ Sidebar.tsx
+│     │  └─ index.ts
+│     └─ notes/
+│        ├─ MarkdownPreview.tsx
+│        ├─ NoteEditor.tsx
+│        ├─ NoteList.tsx
+│        ├─ NoteListItem.tsx
+│        ├─ SearchBar.tsx
+│        ├─ TagInput.tsx
+│        └─ index.ts
+│
+├─ dist/
+│  ├─ index.html
+│  ├─ vite.svg
+│  └─ assets/
+│     ├─ index-DkF0ufhG.js
+│     └─ index-CdBC0FoV.css
+│
+├─ node_modules/
+└─ .git/
+
 ## What Must Be Preserved
 - The notebook + chapters metaphor is core.
 - Chapters emerge only after the 5‑note threshold.
