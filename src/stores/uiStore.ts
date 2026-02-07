@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 
 type View = 'editor' | 'graph' | 'split';
 type EditorMode = 'edit' | 'preview' | 'split';
+type SidebarTab = 'notes' | 'groupings';
 
 interface UIState {
   darkMode: boolean;
@@ -10,12 +11,17 @@ interface UIState {
   currentView: View;
   editorPreviewMode: EditorMode;
   groupingMinSize: number;
+  sidebarTab: SidebarTab;
+  settingsOpen: boolean;
 
   toggleDarkMode: () => void;
   toggleSidebar: () => void;
   setView: (view: View) => void;
   setEditorPreviewMode: (mode: EditorMode) => void;
   setGroupingMinSize: (value: number) => void;
+  setSidebarTab: (tab: SidebarTab) => void;
+  openSettings: () => void;
+  closeSettings: () => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -26,6 +32,8 @@ export const useUIStore = create<UIState>()(
       currentView: 'editor' as View,
       editorPreviewMode: 'split' as EditorMode,
       groupingMinSize: 5,
+      sidebarTab: 'notes' as SidebarTab,
+      settingsOpen: false,
 
       toggleDarkMode: () =>
         set((state) => {
@@ -43,6 +51,10 @@ export const useUIStore = create<UIState>()(
 
       setGroupingMinSize: (value) =>
         set({ groupingMinSize: Math.max(1, Math.floor(value) || 1) }),
+
+      setSidebarTab: (tab) => set({ sidebarTab: tab }),
+      openSettings: () => set({ settingsOpen: true }),
+      closeSettings: () => set({ settingsOpen: false }),
     }),
     {
       name: 'neural-zettel-ui',

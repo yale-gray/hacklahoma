@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { useUIStore } from '@/stores/uiStore.ts';
 import { Header } from './Header.tsx';
 import { Sidebar } from './Sidebar.tsx';
+import { SettingsModal } from './SettingsModal.tsx';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -19,6 +20,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           {children}
         </main>
       </div>
+      <SettingsModal />
     </div>
   );
 }
