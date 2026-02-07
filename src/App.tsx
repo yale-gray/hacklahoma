@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { ErrorBoundary } from '@/components/common/index.ts';
 import { AppLayout } from '@/components/layout/index.ts';
 import { NoteEditor } from '@/components/notes/index.ts';
+import { MapView } from '@/components/map/index.ts';
 import { useNoteStore } from '@/stores/noteStore.ts';
 import { useUIStore } from '@/stores/uiStore.ts';
 
@@ -10,6 +11,7 @@ export default function App() {
   const activeNoteId = useNoteStore((s) => s.activeNoteId);
   const notes = useNoteStore((s) => s.notes);
   const darkMode = useUIStore((s) => s.darkMode);
+  const currentView = useUIStore((s) => s.currentView);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
@@ -24,7 +26,9 @@ export default function App() {
   return (
     <ErrorBoundary>
       <AppLayout>
-        {activeNote ? (
+        {currentView === 'graph' ? (
+          <MapView />
+        ) : activeNote ? (
           <NoteEditor note={activeNote} />
         ) : (
           <div className="flex flex-col items-center justify-center h-full bg-[#1a1612] text-[#b8a88a]">

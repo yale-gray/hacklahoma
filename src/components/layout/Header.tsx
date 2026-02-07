@@ -5,6 +5,8 @@ import { Button } from '@/components/common/index.ts';
 export function Header() {
   const createNote = useNoteStore((s) => s.createNote);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
+  const currentView = useUIStore((s) => s.currentView);
+  const setView = useUIStore((s) => s.setView);
   const settingsOpen = useUIStore((s) => s.settingsOpen);
   const openSettings = useUIStore((s) => s.openSettings);
 
@@ -15,59 +17,135 @@ export function Header() {
   const handleSeedNotes = async () => {
     const seedNotes = [
       {
-        title: 'Personal Knowledge System',
-        content:
-          'I want a lightweight system for capturing ideas, linking them, and turning them into useful knowledge. The focus is on quick capture, clear summaries, and easy retrieval.',
+        title: 'Potion Brewing Basics',
+        content: `A comprehensive guide to potion brewing.
+
+Key ingredients include moonstone dust and dragon scales.
+See also [[Advanced Potion Techniques]] for more complex recipes.
+
+Safety is paramount when working with volatile ingredients.`,
+        tags: ['magic', 'potions', 'tutorial'],
       },
       {
-        title: 'Hackathon Pitch Outline',
-        content:
-          'Problem: messy personal notes. Solution: AI-assisted notes with summaries and auto tags. Market: students, researchers, and product teams. Demo should show instant summaries.',
+        title: 'Advanced Potion Techniques',
+        content: `Advanced methods for experienced brewers.
+
+Building on [[Potion Brewing Basics]], this covers:
+- Time-turner elixirs
+- Polyjuice variations
+- Veritaserum synthesis
+
+Referenced in [[Dark Arts Defense]].`,
+        tags: ['magic', 'potions', 'advanced'],
       },
       {
-        title: 'UX Principles For Note Apps',
-        content:
-          'Speed and low friction matter most. Users should be able to write without syntax overhead. Auto suggestions should feel helpful, not noisy. Visual hierarchy keeps focus.',
+        title: 'Spell Casting Fundamentals',
+        content: `Every wizard must master these core principles.
+
+The wand chooses the wizard. Proper pronunciation is critical.
+See [[Defensive Spells]] for practical applications.`,
+        tags: ['magic', 'spells', 'tutorial'],
       },
       {
-        title: 'Project Milestones',
-        content:
-          'Week 1: MVP editor + storage. Week 2: AI summaries + tags. Week 3: auto links + graph view. Week 4: polish, onboarding, and demo prep.',
+        title: 'Defensive Spells',
+        content: `Essential protection spells every student should know.
+
+Protego, Expelliarmus, and Stupefy are covered in [[Spell Casting Fundamentals]].
+These techniques are crucial for [[Dark Arts Defense]].`,
+        tags: ['magic', 'spells', 'defense'],
       },
       {
-        title: 'Feature Ideas',
-        content:
-          'Daily notes, quick capture widget, backlinks, and a graph view. Also want a list of suggested connections based on semantic similarity.',
+        title: 'Dark Arts Defense',
+        content: `Protecting against the unforgivable curses.
+
+Requires mastery of [[Defensive Spells]] and understanding from [[Advanced Potion Techniques]].
+Always be vigilant. Constant vigilance!`,
+        tags: ['magic', 'defense', 'advanced'],
       },
       {
-        title: 'Research Notes: Zettelkasten',
-        content:
-          'Zettelkasten is a method for writing and linking small notes to form a network of ideas. The value comes from connections and emergent insights.',
+        title: 'Herbology Garden Notes',
+        content: `Magical plants and their properties.
+
+Mandrakes, Venomous Tentacula, and Devil's Snare.
+Many ingredients used in [[Potion Brewing Basics]].`,
+        tags: ['magic', 'herbology', 'nature'],
       },
       {
-        title: 'Marketing Copy Draft',
-        content:
-          'Write once, remember forever. Capture thoughts fast and let AI organize the rest. Your ideas become a connected knowledge graph.',
+        title: 'Transfiguration Theory',
+        content: `The science of changing form and appearance.
+
+From simple objects to complex living things.
+Relates to concepts in [[Spell Casting Fundamentals]].`,
+        tags: ['magic', 'transfiguration', 'theory'],
       },
       {
-        title: 'Engineering Checklist',
-        content:
-          'Add summarization service, handle API errors gracefully, and ensure data stays in IndexedDB. Test note creation and search.',
+        title: 'Quidditch Strategy Guide',
+        content: `Winning tactics for seekers, chasers, and keepers.
+
+The Wronski Feint and Parkin's Pincer.
+Physical training is as important as magical ability.`,
+        tags: ['sports', 'quidditch', 'strategy'],
       },
       {
-        title: 'Customer Interview Notes',
-        content:
-          'Users feel overwhelmed by messy notes. They want a system that surfaces related ideas automatically and keeps things organized without extra effort.',
+        title: 'Magical Creatures Encyclopedia',
+        content: `A field guide to fantastic beasts.
+
+Dragons, hippogriffs, and thestrals. Each requires special handling.
+See [[Herbology Garden Notes]] for creature care supplies.`,
+        tags: ['magic', 'creatures', 'nature'],
       },
       {
-        title: 'Demo Flow',
-        content:
-          'Create a note, watch summary + auto tags appear, then show suggested links. Finish with a short visual graph of note relationships.',
+        title: 'Astronomy Observations',
+        content: `Celestial patterns and their magical significance.
+
+Jupiter's moons, Mars retrograde, and lunar phases.
+Important for timing in [[Potion Brewing Basics]].`,
+        tags: ['magic', 'astronomy', 'theory'],
+      },
+      {
+        title: 'Divination Methods',
+        content: `Reading tea leaves, crystal balls, and the stars.
+
+A controversial art. See [[Astronomy Observations]] for celestial divination.
+The future is not set in stone.`,
+        tags: ['magic', 'divination', 'theory'],
+      },
+      {
+        title: 'History of Magic',
+        content: `Ancient wizards and the founding of Hogwarts.
+
+The four founders: Gryffindor, Slytherin, Ravenclaw, and Hufflepuff.
+Understanding our past shapes our future magic.`,
+        tags: ['history', 'theory', 'hogwarts'],
+      },
+      {
+        title: 'Charms Classroom Notes',
+        content: `Levitation, summoning, and banishing charms.
+
+Wingardium Leviosa! Practice makes perfect.
+Foundation for [[Spell Casting Fundamentals]].`,
+        tags: ['magic', 'charms', 'tutorial'],
+      },
+      {
+        title: 'Ancient Runes Translation',
+        content: `Deciphering magical inscriptions and texts.
+
+Elder Futhark and their magical applications.
+Connected to [[History of Magic]].`,
+        tags: ['magic', 'runes', 'theory'],
+      },
+      {
+        title: 'Magical Theory Principles',
+        content: `The fundamental laws governing magic.
+
+Gamp's Law of Elemental Transfiguration.
+Underlies all magical practice from [[Transfiguration Theory]] to [[Charms Classroom Notes]].`,
+        tags: ['magic', 'theory', 'advanced'],
       },
     ];
 
     for (const note of seedNotes) {
-      await createNote({ title: note.title, content: note.content, tags: [] });
+      await createNote(note);
     }
   };
 
@@ -86,6 +164,28 @@ export function Header() {
         <h1 className="text-lg font-serif font-bold text-[#e8dcc4] tracking-wide">
           <span className="text-[#d4a574]">Neural</span> Zettelkasten
         </h1>
+        <div className="flex items-center gap-1 ml-4">
+          <button
+            onClick={() => setView('editor')}
+            className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+              currentView === 'editor'
+                ? 'bg-[#d4a574] text-[#1a0f0a]'
+                : 'text-[#d4a574] hover:text-[#e8dcc4] hover:bg-[#2d1f14]'
+            }`}
+          >
+            Editor
+          </button>
+          <button
+            onClick={() => setView('graph')}
+            className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+              currentView === 'graph'
+                ? 'bg-[#d4a574] text-[#1a0f0a]'
+                : 'text-[#d4a574] hover:text-[#e8dcc4] hover:bg-[#2d1f14]'
+            }`}
+          >
+            Map
+          </button>
+        </div>
       </div>
 
       <div className="flex items-center gap-2 relative z-10">
