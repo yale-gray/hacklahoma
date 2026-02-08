@@ -2,43 +2,50 @@ import { useRef, useMemo, useCallback, useState, useEffect } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
 import { useNoteStore } from '@/stores/noteStore';
 import { useUIStore } from '@/stores/uiStore';
-import { computeChapters } from '@/services/chapterService';
 import { db } from '@/db/database';
 import type { NoteLink } from '@/types/note';
-import type { Chapter } from '@/types/chapter';
-import { SynthesisPanel } from './SynthesisPanel';
 
 interface GraphNode {
   id: string;
   label: string;
-  type: 'note' | 'chapter';
-  noteCount?: number;
-  tags?: string[];
+  tagCount: number;
   modifiedAt?: Date;
+  clusterColor?: string;
   x?: number;
   y?: number;
-  vx?: number;
-  vy?: number;
 }
 
 interface GraphLink {
   source: string;
   target: string;
-  type: 'wiki' | 'chapter-to-note' | 'shared-tag';
-  label?: string;
+  type: 'tag' | 'wiki';
+  sharedTags: string[];
 }
+
+// Muted, dark-academia-friendly cluster palette
+const CLUSTER_COLORS = [
+  '#8b5e3c', // warm umber
+  '#6b7f5e', // sage olive
+  '#7a5a7a', // dusty plum
+  '#5c7a8a', // slate teal
+  '#a07850', // antique brass
+  '#6a5a4a', // driftwood
+  '#7a6050', // clay
+  '#5a6a5a', // moss
+  '#8a6a6a', // rosewood
+  '#5a5a7a', // twilight
+];
 
 export function MapView() {
   const notes = useNoteStore((s) => s.notes);
   const setActiveNote = useNoteStore((s) => s.setActiveNote);
   const setView = useUIStore((s) => s.setView);
-  const groupingMinSize = useUIStore((s) => s.groupingMinSize);
+  const mapColorThreshold = useUIStore((s) => s.mapColorThreshold);
+  const hoveredGroupTag = useUIStore((s) => s.hoveredGroupTag);
   const graphRef = useRef<any>(null);
   const [noteLinks, setNoteLinks] = useState<NoteLink[]>([]);
-  const [showTagLinks, setShowTagLinks] = useState(true);
-  const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
 
-  // Load note links from database
+  // Load wiki links from database
   useEffect(() => {
     const loadLinks = async () => {
       const links = await db.noteLinks.toArray();
@@ -47,413 +54,349 @@ export function MapView() {
     loadLinks();
   }, [notes]);
 
-  // Compute graph data
   const graphData = useMemo(() => {
     const nodes: GraphNode[] = [];
     const links: GraphLink[] = [];
 
-    // Add note nodes
+    // Build tag → noteIds index
+    const tagToNotes = new Map<string, string[]>();
+    const noteIdSet = new Set<string>();
     for (const note of notes) {
+      noteIdSet.add(note.id);
+      const allTags = [...new Set([...note.tags, ...(note.autoTags ?? [])])];
       nodes.push({
         id: note.id,
-        label: note.title,
-        type: 'note',
-        tags: [...note.tags, ...(note.autoTags ?? [])],
+        label: note.title || 'Untitled',
+        tagCount: allTags.length,
         modifiedAt: note.modifiedAt,
       });
-    }
-
-    // Add chapter nodes
-    const chapters = computeChapters(notes, groupingMinSize);
-    for (const chapter of chapters) {
-      const chapterId = `chapter:${chapter.tag}`;
-      nodes.push({
-        id: chapterId,
-        label: chapter.tag,
-        type: 'chapter',
-        noteCount: chapter.count,
-      });
-
-      // Link chapter to its notes
-      for (const noteId of chapter.noteIds) {
-        links.push({
-          source: chapterId,
-          target: noteId,
-          type: 'chapter-to-note',
-          label: `#${chapter.tag}`,
-        });
+      for (const tag of allTags) {
+        if (!tagToNotes.has(tag)) tagToNotes.set(tag, []);
+        tagToNotes.get(tag)!.push(note.id);
       }
     }
 
-    // Add wiki links
+    // Determine which tags meet the color threshold
+    const coloredTags: string[] = [];
+    for (const [tag, ids] of tagToNotes.entries()) {
+      if (ids.length >= mapColorThreshold) {
+        coloredTags.push(tag);
+      }
+    }
+
+    // Assign cluster colors to nodes in large tag groups
+    // A node gets the color of its largest qualifying tag group
+    const nodeToCluster = new Map<string, { tag: string; size: number }>();
+    let colorIdx = 0;
+    const tagColorMap = new Map<string, string>();
+    for (const tag of coloredTags) {
+      tagColorMap.set(tag, CLUSTER_COLORS[colorIdx % CLUSTER_COLORS.length]);
+      colorIdx++;
+      const ids = tagToNotes.get(tag)!;
+      for (const id of ids) {
+        const existing = nodeToCluster.get(id);
+        if (!existing || ids.length > existing.size) {
+          nodeToCluster.set(id, { tag, size: ids.length });
+        }
+      }
+    }
+
+    for (const node of nodes) {
+      const cluster = nodeToCluster.get(node.id);
+      if (cluster) {
+        node.clusterColor = tagColorMap.get(cluster.tag);
+      }
+    }
+
+    // Connect notes that share tags (solid links)
+    const pairTags = new Map<string, string[]>();
+    for (const [tag, noteIds] of tagToNotes.entries()) {
+      if (noteIds.length < 2) continue;
+      for (let i = 0; i < noteIds.length; i++) {
+        for (let j = i + 1; j < noteIds.length; j++) {
+          const key = [noteIds[i], noteIds[j]].sort().join('|');
+          if (!pairTags.has(key)) pairTags.set(key, []);
+          pairTags.get(key)!.push(tag);
+        }
+      }
+    }
+
+    for (const [key, tags] of pairTags.entries()) {
+      const [source, target] = key.split('|');
+      links.push({ source, target, type: 'tag', sharedTags: tags });
+    }
+
+    // Add wiki links (dashed links)
+    const existingPairs = new Set(pairTags.keys());
     for (const link of noteLinks) {
-      links.push({
-        source: link.sourceId,
-        target: link.targetId,
-        type: 'wiki',
-        label: 'Wiki link',
-      });
-    }
-
-    // Add direct tag links between notes (if enabled)
-    if (showTagLinks) {
-      const notePairToTags = new Map<string, string[]>();
-      const tagToNotes = new Map<string, string[]>();
-
-      for (const note of notes) {
-        const allTags = [...note.tags, ...(note.autoTags ?? [])];
-        for (const tag of allTags) {
-          if (!tagToNotes.has(tag)) {
-            tagToNotes.set(tag, []);
-          }
-          tagToNotes.get(tag)!.push(note.id);
-        }
-      }
-
-      for (const [tag, noteIds] of tagToNotes.entries()) {
-        if (noteIds.length >= 2) {
-          for (let i = 0; i < noteIds.length; i++) {
-            for (let j = i + 1; j < noteIds.length; j++) {
-              const pairKey = [noteIds[i], noteIds[j]].sort().join('|');
-              if (!notePairToTags.has(pairKey)) {
-                notePairToTags.set(pairKey, []);
-              }
-              notePairToTags.get(pairKey)!.push(tag);
-            }
-          }
-        }
-      }
-
-      for (const [pairKey, tags] of notePairToTags.entries()) {
-        const [source, target] = pairKey.split('|');
-        const tagLabel = tags.map(t => `#${t}`).join(', ');
-        links.push({
-          source,
-          target,
-          type: 'shared-tag',
-          label: tagLabel,
-        });
+      if (!noteIdSet.has(link.sourceId) || !noteIdSet.has(link.targetId)) continue;
+      const pairKey = [link.sourceId, link.targetId].sort().join('|');
+      if (!existingPairs.has(pairKey)) {
+        links.push({ source: link.sourceId, target: link.targetId, type: 'wiki', sharedTags: [] });
+        existingPairs.add(pairKey);
       }
     }
 
     return { nodes, links };
-  }, [notes, noteLinks, groupingMinSize, showTagLinks]);
+  }, [notes, noteLinks, mapColorThreshold]);
+
+  // Configure force simulation for spread-out layout
+  useEffect(() => {
+    const fg = graphRef.current;
+    if (!fg) return;
+    // Strong repulsion to spread nodes apart
+    fg.d3Force('charge')?.strength(-300).distanceMax(500);
+    // Longer resting link distance
+    fg.d3Force('link')?.distance((link: any) => {
+      const l = link as GraphLink;
+      // More shared tags = shorter link (tighter cluster)
+      const shared = l.sharedTags.length;
+      if (shared === 0) return 200; // wiki-only links stay far
+      return Math.max(60, 180 - shared * 30);
+    });
+    // Gentle center pull
+    fg.d3Force('center')?.strength(0.03);
+    fg.d3ReheatSimulation();
+  }, [graphData]);
 
   const handleNodeClick = useCallback(
     (node: GraphNode) => {
-      if (node.type === 'note') {
-        setActiveNote(node.id);
-        setView('editor');
-      } else if (node.type === 'chapter') {
-        // When clicking a chapter, show synthesis panel and zoom to it
-        const chapters = computeChapters(notes, groupingMinSize);
-        const chapter = chapters.find(c => `chapter:${c.tag}` === node.id);
-        if (chapter) {
-          setSelectedChapter(chapter);
+      setActiveNote(node.id);
+      setView('editor');
+    },
+    [setActiveNote, setView]
+  );
+
+  // Link opacity/width scales with number of shared tags
+  const maxShared = useMemo(() => {
+    let max = 1;
+    for (const l of graphData.links) {
+      if (l.sharedTags.length > max) max = l.sharedTags.length;
+    }
+    return max;
+  }, [graphData.links]);
+
+  // Build set of note IDs to highlight when hovering a grouping shelf
+  const highlightedNoteIds = useMemo(() => {
+    if (!hoveredGroupTag) return null;
+    const ids = new Set<string>();
+    for (const note of notes) {
+      const allTags = [...note.tags, ...(note.autoTags ?? [])];
+      if (allTags.includes(hoveredGroupTag)) {
+        ids.add(note.id);
+      }
+    }
+    return ids.size > 0 ? ids : null;
+  }, [hoveredGroupTag, notes]);
+
+  // Collect active cluster colors for legend
+  const activeClusters = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const node of graphData.nodes) {
+      const n = node as GraphNode;
+      if (n.clusterColor) {
+        // Find the tag for this color
+        const tagToNotes = new Map<string, string[]>();
+        for (const note of notes) {
+          const allTags = [...new Set([...note.tags, ...(note.autoTags ?? [])])];
+          for (const tag of allTags) {
+            if (!tagToNotes.has(tag)) tagToNotes.set(tag, []);
+            tagToNotes.get(tag)!.push(note.id);
+          }
         }
-
-        const graph = graphRef.current;
-        if (graph) {
-          // Get the chapter's connected notes
-          const chapterId = node.id;
-          const connectedNodes = graphData.nodes.filter((n: GraphNode) => {
-            if (n.id === chapterId) return true;
-            // Check if this note has a link to the chapter
-            return graphData.links.some((link: GraphLink) =>
-              (link.source === chapterId && link.target === n.id) ||
-              (link.target === chapterId && link.source === n.id)
-            );
-          });
-
-          // Focus on the chapter node
-          if (connectedNodes.length > 0) {
-            graph.centerAt(node.x, node.y, 400);
-            graph.zoom(2, 400);
+        for (const [tag, ids] of tagToNotes.entries()) {
+          if (ids.length >= mapColorThreshold && ids.includes(n.id)) {
+            if (!seen.has(tag)) {
+              seen.set(tag, n.clusterColor);
+            }
           }
         }
       }
-    },
-    [setActiveNote, setView, graphData, notes, groupingMinSize]
-  );
-
-  // Double-click to unpin a node
-  const handleNodeRightClick = useCallback((node: any) => {
-    // Release the node from fixed position
-    node.fx = undefined;
-    node.fy = undefined;
-  }, []);
-
-  const getNodeColor = useCallback((node: GraphNode) => {
-    if (node.type === 'chapter') {
-      return '#d4a574'; // Gold/brass
     }
-
-    // Check if recently edited (last 24 hours)
-    if (node.modifiedAt) {
-      const hoursSinceEdit = (Date.now() - node.modifiedAt.getTime()) / (1000 * 60 * 60);
-      if (hoursSinceEdit < 24) {
-        return '#ff6b6b'; // Red for recent
-      }
-    }
-
-    return '#e8dcc4'; // Parchment
-  }, []);
-
-  const getNodeSize = useCallback((node: GraphNode) => {
-    if (node.type === 'chapter') {
-      return Math.sqrt((node.noteCount ?? 5) * 2) + 5;
-    }
-    return 5;
-  }, []);
-
-  const getLinkColor = useCallback((link: GraphLink) => {
-    if (link.type === 'wiki') {
-      return 'rgba(212, 165, 116, 0.6)'; // Gold
-    }
-    if (link.type === 'shared-tag') {
-      return 'rgba(139, 115, 85, 0.3)'; // Brown/copper
-    }
-    return 'rgba(232, 220, 196, 0.15)'; // Faint
-  }, []);
-
-  const getLinkWidth = useCallback((link: GraphLink) => {
-    if (link.type === 'wiki') return 2.5;
-    if (link.type === 'shared-tag') return 1.5;
-    return 1;
-  }, []);
+    return [...seen.entries()].map(([tag, color]) => ({ tag, color }));
+  }, [graphData.nodes, notes, mapColorThreshold]);
 
   return (
     <div
       className="w-full h-full relative"
       style={{
-        background: 'linear-gradient(135deg, #1a0f0a 0%, #2d1f14 50%, #1a0f0a 100%)'
+        background: 'linear-gradient(135deg, #1a0f0a 0%, #2d1f14 50%, #1a0f0a 100%)',
       }}
     >
       {/* Parchment texture overlay */}
       <div
-        className="absolute inset-0 pointer-events-none opacity-20"
+        className="absolute inset-0 pointer-events-none opacity-15"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' /%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23noise)' opacity='0.4'/%3E%3C/svg%3E")`,
           mixBlendMode: 'overlay',
         }}
       />
 
-      {/* Aged paper stains */}
+      {/* Subtle vignette */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: 'radial-gradient(ellipse at center, transparent 40%, rgba(10,5,2,0.6) 100%)',
+        }}
+      />
+
+      {/* Aged stain accents */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div
-          className="absolute w-64 h-64 rounded-full blur-3xl opacity-10"
-          style={{
-            background: '#8b7355',
-            top: '10%',
-            left: '20%',
-          }}
+          className="absolute w-72 h-72 rounded-full blur-3xl opacity-[0.06]"
+          style={{ background: '#8b7355', top: '15%', left: '25%' }}
         />
         <div
-          className="absolute w-48 h-48 rounded-full blur-3xl opacity-10"
-          style={{
-            background: '#d4a574',
-            bottom: '20%',
-            right: '15%',
-          }}
-        />
-        <div
-          className="absolute w-32 h-32 rounded-full blur-3xl opacity-5"
-          style={{
-            background: '#8b7355',
-            top: '50%',
-            right: '40%',
-          }}
+          className="absolute w-56 h-56 rounded-full blur-3xl opacity-[0.06]"
+          style={{ background: '#d4a574', bottom: '20%', right: '20%' }}
         />
       </div>
 
       <ForceGraph2D
         ref={graphRef}
         graphData={graphData}
-        nodeLabel={(node: any) => node.label}
-        nodeColor={getNodeColor}
-        nodeVal={getNodeSize}
-        linkLabel={(link: any) => link.label || ''}
-        linkColor={getLinkColor}
-        linkWidth={getLinkWidth}
-        onNodeClick={handleNodeClick}
-        onNodeRightClick={handleNodeRightClick}
-        onNodeHover={(node: any) => {
-          if (node) {
-            document.body.style.cursor = 'move';
-          } else {
-            document.body.style.cursor = 'default';
-          }
-        }}
-        onNodeDrag={(node: any) => {
-          // Allow dragging by updating position
-          node.fx = node.x;
-          node.fy = node.y;
-        }}
-        onNodeDragEnd={(node: any) => {
-          // Fix position after drag
-          node.fx = node.x;
-          node.fy = node.y;
-        }}
         backgroundColor="transparent"
-        linkDirectionalParticles={(link: any) => (link.type === 'wiki' ? 2 : 0)}
-        linkDirectionalParticleWidth={2}
-        cooldownTicks={50}
-        warmupTicks={50}
-        enableNodeDrag={true}
-        enableZoomInteraction={true}
-        enablePanInteraction={true}
-        d3VelocityDecay={0.3}
+        enableNodeDrag={false}
+        cooldownTicks={120}
+        d3AlphaDecay={0.03}
+        d3VelocityDecay={0.25}
+        // Spread nodes apart — high charge repulsion, long link distance
+        d3AlphaMin={0.01}
+        onEngineStop={() => {
+          graphRef.current?.zoomToFit(400, 60);
+        }}
+        onNodeClick={handleNodeClick}
+        linkColor={(link: any) => {
+          const l = link as GraphLink;
+          if (l.type === 'wiki') return 'rgba(212, 165, 116, 0.35)';
+          const strength = l.sharedTags.length / maxShared;
+          const alpha = 0.2 + strength * 0.5;
+          return `rgba(212, 165, 116, ${alpha})`;
+        }}
+        linkWidth={(link: any) => {
+          const l = link as GraphLink;
+          if (l.type === 'wiki') return 1;
+          const strength = l.sharedTags.length / maxShared;
+          return 0.5 + strength * 2;
+        }}
+        linkLabel={(link: any) => {
+          const l = link as GraphLink;
+          if (l.type === 'wiki') return 'Wiki link';
+          return l.sharedTags.map((t) => `#${t}`).join(', ');
+        }}
+        linkLineDash={(link: any) => {
+          const l = link as GraphLink;
+          if (l.type === 'wiki') return [4, 3];
+          return null;
+        }}
         nodeCanvasObject={(node: any, ctx, globalScale) => {
-          const label = node.label;
-          const fontSize = node.type === 'chapter' ? 14 / globalScale : 10 / globalScale;
-          const nodeColor = getNodeColor(node);
+          const n = node as GraphNode;
+          const size = 3 + (n.tagCount ?? 0) * 0.8;
+          const isRecent =
+            n.modifiedAt &&
+            (Date.now() - new Date(n.modifiedAt).getTime()) / (1000 * 60 * 60) < 24;
+          const isHighlighted = highlightedNoteIds?.has(n.id) ?? false;
+          const isDimmed = highlightedNoteIds !== null && !isHighlighted;
+          const baseColor = n.clusterColor ?? (isRecent ? '#e8c89a' : '#c4a87a');
+          const fillColor = isDimmed ? '#3a3028' : isHighlighted ? '#f0d090' : baseColor;
+          const borderColor = isDimmed
+            ? 'rgba(100, 80, 60, 0.3)'
+            : isHighlighted
+              ? '#d4a574'
+              : n.clusterColor ?? 'rgba(212, 165, 116, 0.6)';
 
-          // Draw node circle
-          ctx.beginPath();
-          ctx.arc(node.x, node.y, getNodeSize(node), 0, 2 * Math.PI, false);
-          ctx.fillStyle = nodeColor;
-          ctx.fill();
-
-          // Draw glow for recently edited notes
-          if (node.type === 'note' && node.modifiedAt) {
-            const hoursSinceEdit = (Date.now() - node.modifiedAt.getTime()) / (1000 * 60 * 60);
-            if (hoursSinceEdit < 24) {
-              ctx.shadowColor = nodeColor;
-              ctx.shadowBlur = 15;
-              ctx.beginPath();
-              ctx.arc(node.x, node.y, getNodeSize(node) + 3, 0, 2 * Math.PI, false);
-              ctx.fillStyle = `${nodeColor}33`;
-              ctx.fill();
-              ctx.shadowBlur = 0;
-            }
+          // Highlight glow
+          if (isHighlighted) {
+            ctx.save();
+            ctx.shadowColor = '#d4a574';
+            ctx.shadowBlur = 18;
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, size + 4, 0, 2 * Math.PI);
+            ctx.fillStyle = 'rgba(212, 165, 116, 0.2)';
+            ctx.fill();
+            ctx.restore();
+          } else if ((isRecent || n.clusterColor) && !isDimmed) {
+            // Normal glow for recent or clustered
+            ctx.save();
+            ctx.shadowColor = baseColor;
+            ctx.shadowBlur = n.clusterColor ? 8 : 12;
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, size + 2, 0, 2 * Math.PI);
+            ctx.fillStyle = `${baseColor}25`;
+            ctx.fill();
+            ctx.restore();
           }
 
-          // Draw label
-          ctx.font = `${fontSize}px serif`;
+          // Node circle
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, isHighlighted ? size + 1 : size, 0, 2 * Math.PI);
+          ctx.fillStyle = fillColor;
+          ctx.fill();
+          ctx.strokeStyle = borderColor;
+          ctx.lineWidth = isHighlighted ? 1.2 : 0.6;
+          ctx.stroke();
+
+          // Label
+          const fontSize = Math.max(9 / globalScale, 2.5);
+          ctx.font = `${fontSize}px 'Libre Baskerville', serif`;
           ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillStyle = '#e8dcc4';
-          ctx.fillText(label, node.x, node.y + getNodeSize(node) + fontSize + 2);
+          ctx.textBaseline = 'top';
+          ctx.fillStyle = isDimmed ? 'rgba(232, 220, 196, 0.2)' : '#e8dcc4';
+          ctx.fillText(n.label, node.x, node.y + (isHighlighted ? size + 1 : size) + fontSize * 0.4);
+        }}
+        nodePointerAreaPaint={(node: any, color, ctx) => {
+          const size = 3 + ((node as GraphNode).tagCount ?? 0) * 0.8;
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, size + 4, 0, 2 * Math.PI);
+          ctx.fillStyle = color;
+          ctx.fill();
         }}
       />
 
       {/* Legend */}
-      <div className="absolute top-4 left-4 bg-[#1a0f0a]/90 rounded-lg p-3 shadow-lg backdrop-blur-sm border-2 border-[#d4a574]/50">
-        <h3 className="text-sm font-serif font-bold mb-2 text-[#e8dcc4]">
-          The Marauder's Map
+      <div className="absolute top-4 left-4 bg-[#1a0f0a]/90 rounded-lg p-3 shadow-lg backdrop-blur-sm border border-[#d4a574]/30">
+        <h3 className="text-xs font-serif font-semibold mb-2 text-[#d4a574] tracking-wide uppercase">
+          Knowledge Map
         </h3>
-        <div className="flex flex-col gap-1.5 text-xs">
+        <div className="flex flex-col gap-1.5 text-[10px]">
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full" style={{ background: '#d4a574' }} />
-            <span className="text-[#d4a574]">Chapters (tag hubs)</span>
+            <div className="w-2.5 h-2.5 rounded-full" style={{ background: '#c4a87a', border: '1px solid rgba(212,165,116,0.6)' }} />
+            <span className="text-[#b8a88a] font-serif">Note</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full" style={{ background: '#e8dcc4' }} />
-            <span className="text-[#e8dcc4]">Notes</span>
+            <div className="w-2.5 h-2.5 rounded-full" style={{ background: '#e8c89a', boxShadow: '0 0 6px rgba(212,165,116,0.4)' }} />
+            <span className="text-[#b8a88a] font-serif">Recently edited</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full" style={{ background: '#ff6b6b' }} />
-            <span className="text-[#d4a574]">Recently edited</span>
-          </div>
-          <div className="mt-2 pt-2 border-t border-[#d4a574]/50">
+          {activeClusters.length > 0 && (
+            <>
+              <div className="mt-1 pt-1 border-t border-[#d4a574]/20">
+                <span className="text-[9px] text-[#8b7355] font-serif italic">Clusters ({mapColorThreshold}+)</span>
+              </div>
+              {activeClusters.map(({ tag, color }) => (
+                <div key={tag} className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ background: color, boxShadow: `0 0 4px ${color}66` }} />
+                  <span className="text-[#b8a88a] font-serif">#{tag}</span>
+                </div>
+              ))}
+            </>
+          )}
+          <div className="mt-1 pt-1 border-t border-[#d4a574]/20">
             <div className="flex items-center gap-2 mb-1">
-              <div className="w-8 h-0.5" style={{ background: 'rgba(212, 165, 116, 0.6)' }} />
-              <span className="text-[#d4a574]">Wiki links</span>
-            </div>
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-8 h-0.5" style={{ background: 'rgba(139, 115, 85, 0.3)' }} />
-              <span className="text-[#d4a574]">Shared tags</span>
+              <div className="w-6 h-[1.5px]" style={{ background: 'rgba(212, 165, 116, 0.5)' }} />
+              <span className="text-[#b8a88a] font-serif">Shared tags</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-0.5" style={{ background: 'rgba(232, 220, 196, 0.15)' }} />
-              <span className="text-[#d4a574]">Chapter links</span>
+              <svg width="24" height="2" className="flex-shrink-0">
+                <line x1="0" y1="1" x2="24" y2="1" stroke="rgba(212, 165, 116, 0.35)" strokeWidth="1.5" strokeDasharray="4 3" />
+              </svg>
+              <span className="text-[#b8a88a] font-serif">Wiki links</span>
             </div>
           </div>
         </div>
-        <p className="text-xs italic mt-2 text-[#d4a574]/80" style={{ fontFamily: 'serif' }}>
-          Click notes to open • Click chapters to zoom
-        </p>
-        <p className="text-xs italic mt-1 text-[#d4a574]/60" style={{ fontFamily: 'serif' }}>
-          Drag nodes to move • Right-click to unpin • Scroll to zoom
+        <p className="text-[9px] italic mt-2 text-[#8b7355] font-serif">
+          Click a node to open
         </p>
       </div>
-
-      {/* Toggle for tag links */}
-      <div className="absolute top-4 right-4 bg-[#1a0f0a]/90 rounded-lg p-3 shadow-lg backdrop-blur-sm border-2 border-[#d4a574]/50">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={showTagLinks}
-            onChange={(e) => setShowTagLinks(e.target.checked)}
-            className="w-4 h-4 rounded border-[#d4a574] text-[#d4a574] focus:ring-[#d4a574] focus:ring-offset-0"
-          />
-          <span className="text-xs text-[#e8dcc4]">
-            Show tag connections
-          </span>
-        </label>
-        <p className="text-xs text-[#d4a574]/80 mt-1 italic" style={{ fontFamily: 'serif' }}>
-          Direct links between notes with shared tags
-        </p>
-      </div>
-
-      {/* Zoom Controls */}
-      <div className="absolute bottom-4 right-4 flex flex-col gap-2">
-        <button
-          onClick={() => {
-            const graph = graphRef.current;
-            if (graph) {
-              const currentZoom = graph.zoom();
-              graph.zoom(currentZoom * 1.3, 400);
-            }
-          }}
-          className="w-10 h-10 bg-[#1a0f0a]/90 rounded-lg shadow-lg backdrop-blur-sm border-2 border-[#d4a574]/50 flex items-center justify-center text-[#d4a574] hover:bg-[#2d1f14] transition-colors"
-          title="Zoom In"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-        </button>
-        <button
-          onClick={() => {
-            const graph = graphRef.current;
-            if (graph) {
-              const currentZoom = graph.zoom();
-              graph.zoom(currentZoom / 1.3, 400);
-            }
-          }}
-          className="w-10 h-10 bg-[#1a0f0a]/90 rounded-lg shadow-lg backdrop-blur-sm border-2 border-[#d4a574]/50 flex items-center justify-center text-[#d4a574] hover:bg-[#2d1f14] transition-colors"
-          title="Zoom Out"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-          </svg>
-        </button>
-        <button
-          onClick={() => {
-            const graph = graphRef.current;
-            if (graph) {
-              graph.zoomToFit(400, 50);
-            }
-          }}
-          className="w-10 h-10 bg-[#1a0f0a]/90 rounded-lg shadow-lg backdrop-blur-sm border-2 border-[#d4a574]/50 flex items-center justify-center text-[#d4a574] hover:bg-[#2d1f14] transition-colors"
-          title="Reset View"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-          </svg>
-        </button>
-      </div>
-
-      {/* AI Synthesis Panel */}
-      <SynthesisPanel
-        chapter={selectedChapter}
-        onClose={() => setSelectedChapter(null)}
-        onNoteCreated={(noteId) => {
-          setSelectedChapter(null);
-          setActiveNote(noteId);
-          setView('editor');
-        }}
-      />
     </div>
   );
 }

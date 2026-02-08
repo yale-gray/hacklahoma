@@ -41,6 +41,7 @@ export function TagGroupList() {
   const setActiveNote = useNoteStore((s) => s.setActiveNote);
   const isLoading = useNoteStore((s) => s.isLoading);
   const groupingMinSize = useUIStore((s) => s.groupingMinSize);
+  const setHoveredGroupTag = useUIStore((s) => s.setHoveredGroupTag);
 
   if (isLoading) {
     return (
@@ -98,7 +99,12 @@ export function TagGroupList() {
       {sortedTags.map((tag) => {
         const items = tagMap.get(tag) ?? [];
         return (
-          <div key={tag} className="mb-1">
+          <div
+            key={tag}
+            className="mb-1"
+            onMouseEnter={() => setHoveredGroupTag(tag)}
+            onMouseLeave={() => setHoveredGroupTag(null)}
+          >
             {/* Shelf label */}
             <div className="shelf-label">
               <span className="shelf-label-text">{tag}</span>

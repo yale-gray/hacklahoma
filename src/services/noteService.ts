@@ -31,14 +31,11 @@ async function enrichNoteContent(title: string, content: string): Promise<Pick<N
 export const noteService = {
   async create(input: NoteCreateInput): Promise<Note> {
     const now = new Date();
-    const enrichment = await enrichNoteContent(input.title, input.content);
     const note: Note = {
       id: generateNoteId(now),
       title: input.title,
       content: input.content,
       tags: input.tags,
-      summary: enrichment.summary,
-      autoTags: enrichment.autoTags,
       createdAt: now,
       modifiedAt: now,
     };
@@ -47,6 +44,16 @@ export const noteService = {
       await db.notes.add(note);
       await syncNoteLinks(note);
     });
+
+    // Enrich with AI in the background (non-blocking)
+    if (input.content.trim()) {
+      enrichNoteContent(input.title, input.content)
+        .then(async (enrichment) => {
+          const enriched = { ...note, ...enrichment };
+          await db.notes.put(enriched);
+        })
+        .catch(() => { /* AI enrichment is best-effort */ });
+    }
 
     return note;
   },
@@ -96,18 +103,19 @@ export const noteService = {
 
   async getAll(): Promise<Note[]> {
     const notes = await db.notes.orderBy('modifiedAt').reverse().toArray();
-    const enriched = await Promise.all(
-      notes.map(async (note) => {
-        if (note.summary && note.autoTags?.length) {
-          return note;
-        }
-        const enrichment = await enrichNoteContent(note.title, note.content);
-        const updated = { ...note, ...enrichment };
-        await db.notes.put(updated);
-        return updated;
-      })
-    );
-    return enriched;
+
+    // Kick off background enrichment for notes missing AI data (non-blocking)
+    for (const note of notes) {
+      if (!note.summary && !note.autoTags?.length && note.content.trim()) {
+        enrichNoteContent(note.title, note.content)
+          .then(async (enrichment) => {
+            await db.notes.put({ ...note, ...enrichment });
+          })
+          .catch(() => { /* best-effort */ });
+      }
+    }
+
+    return notes;
   },
 
   async search(query: string): Promise<Note[]> {
