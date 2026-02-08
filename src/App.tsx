@@ -5,6 +5,8 @@ import { NoteEditor } from '@/components/notes/index.ts';
 import { MapView } from '@/components/map/index.ts';
 import { KnowledgeChat } from '@/components/search/index.ts';
 import { TemporalGraph } from '@/components/temporal/index.ts';
+import { ArgumentMapper } from '@/components/arguments/index.ts';
+import { ReadingImporter } from '@/components/reading/index.ts';
 import { useNoteStore } from '@/stores/noteStore.ts';
 import { useUIStore } from '@/stores/uiStore.ts';
 
@@ -34,6 +36,10 @@ export default function App() {
           <KnowledgeChat />
         ) : currentView === 'temporal' ? (
           <TemporalGraph />
+        ) : currentView === 'arguments' ? (
+          <ArgumentMapper />
+        ) : currentView === 'reading' ? (
+          <ReadingImporter />
         ) : activeNote ? (
           <NoteEditor note={activeNote} />
         ) : (

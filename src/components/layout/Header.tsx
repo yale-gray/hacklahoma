@@ -90,6 +90,26 @@ export function Header() {
           >
             Timeline
           </button>
+          <button
+            onClick={() => setView('arguments')}
+            className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+              currentView === 'arguments'
+                ? 'bg-[#d4a574] text-[#1a0f0a]'
+                : 'text-[#d4a574] hover:text-[#e8dcc4] hover:bg-[#2d1f14]'
+            }`}
+          >
+            Arguments
+          </button>
+          <button
+            onClick={() => setView('reading')}
+            className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+              currentView === 'reading'
+                ? 'bg-[#d4a574] text-[#1a0f0a]'
+                : 'text-[#d4a574] hover:text-[#e8dcc4] hover:bg-[#2d1f14]'
+            }`}
+          >
+            Import
+          </button>
         </div>
       </div>
 

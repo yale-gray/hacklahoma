@@ -14,6 +14,29 @@ export interface AISynthesis {
   sourceNoteIds: string[];
 }
 
+export interface RelatedNote {
+  noteId: string;
+  relevanceScore: number;
+  reason: string;
+  relationship: 'supporting' | 'contradicting' | 'expanding' | 'related';
+}
+
+export interface ArgumentAnalysis {
+  topic: string;
+  supportingNotes: Array<{ noteId: string; excerpt: string }>;
+  contradictingNotes: Array<{ noteId: string; excerpt: string }>;
+  synthesisNotes: Array<{ noteId: string; excerpt: string }>;
+  evolution: Array<{ date: Date; noteId: string; stance: string }>;
+}
+
+export interface ExtractedContent {
+  title: string;
+  keyPoints: string[];
+  summary: string;
+  suggestedTags: string[];
+  linkedNoteIds: string[];
+}
+
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const GEMINI_MODEL = import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.5-flash';
 
@@ -491,6 +514,226 @@ export const aiService = {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Search failed';
       throw new Error(`Knowledge Search error: ${message}`);
+    }
+  },
+
+  async findRelatedNotes(
+    currentNote: { title: string; content: string; tags: string[] },
+    allNotes: Array<{ id: string; title: string; content: string; tags: string[]; createdAt: Date }>
+  ): Promise<RelatedNote[]> {
+    if (!hasValidApiKey(GEMINI_API_KEY)) {
+      throw new Error('API key required for Smart Resurfacing');
+    }
+
+    try {
+      // Filter out very recent notes (< 7 days old) - we want to resurface OLD notes
+      const oldNotes = allNotes.filter(note => {
+        const daysSinceCreation = (Date.now() - new Date(note.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+        return daysSinceCreation >= 7;
+      });
+
+      if (oldNotes.length === 0) {
+        return [];
+      }
+
+      // Take sample of old notes for analysis
+      const sampleNotes = oldNotes.slice(0, 30).map((note, idx) =>
+        `[${idx + 1}] ID: ${note.id}\nTitle: "${note.title}"\nTags: ${note.tags.join(', ')}\nContent: ${note.content.slice(0, 200)}...`
+      ).join('\n\n');
+
+      const prompt = [
+        'You are a smart note resurfacing engine. Analyze the current note and find related old notes.',
+        '',
+        'Current Note:',
+        `Title: "${currentNote.title}"`,
+        `Tags: ${currentNote.tags.join(', ')}`,
+        `Content: ${currentNote.content.slice(0, 500)}...`,
+        '',
+        'Task: Find up to 5 most relevant old notes that:',
+        '- Support or expand on ideas in the current note',
+        '- Contradict or challenge the current note',
+        '- Provide missing context',
+        '- Show how thinking evolved',
+        '',
+        'Return ONLY valid JSON array with this shape:',
+        '[{"noteId":"...", "relevanceScore":0-100, "reason":"...", "relationship":"supporting|contradicting|expanding|related"}]',
+        '',
+        'Old Notes to consider:',
+        sampleNotes,
+      ].join('\n');
+
+      const response = await fetch(getGeminiEndpoint(GEMINI_MODEL), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': GEMINI_API_KEY,
+        },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.4, maxOutputTokens: 1024 },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}`);
+      }
+
+      const data = await response.json();
+      const text = extractTextFromResponse(data);
+      const parsed = extractJsonObject<RelatedNote[]>(text);
+
+      return parsed || [];
+    } catch (err) {
+      console.error('findRelatedNotes error:', err);
+      return [];
+    }
+  },
+
+  async analyzeArguments(
+    topic: string,
+    notes: Array<{ id: string; title: string; content: string; createdAt: Date }>
+  ): Promise<ArgumentAnalysis> {
+    if (!hasValidApiKey(GEMINI_API_KEY)) {
+      throw new Error('API key required for Argument Mapper');
+    }
+
+    try {
+      const noteContext = notes.map((note, idx) =>
+        `[${idx + 1}] ID: ${note.id}\nDate: ${new Date(note.createdAt).toLocaleDateString()}\nTitle: "${note.title}"\nContent: ${note.content.slice(0, 300)}...`
+      ).join('\n\n');
+
+      const prompt = [
+        'You are an argument analysis engine. Analyze these notes to find supporting, contradicting, and synthesizing viewpoints.',
+        '',
+        `Topic: "${topic}"`,
+        '',
+        'Task: Categorize notes based on their stance and extract key excerpts.',
+        'Return ONLY valid JSON with this shape:',
+        '{',
+        '  "supportingNotes": [{"noteId":"...", "excerpt":"..."}],',
+        '  "contradictingNotes": [{"noteId":"...", "excerpt":"..."}],',
+        '  "synthesisNotes": [{"noteId":"...", "excerpt":"..."}],',
+        '  "evolution": [{"date":"YYYY-MM-DD", "noteId":"...", "stance":"..."}]',
+        '}',
+        '',
+        'Notes:',
+        noteContext,
+      ].join('\n');
+
+      const response = await fetch(getGeminiEndpoint(GEMINI_MODEL), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': GEMINI_API_KEY,
+        },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.3, maxOutputTokens: 2048 },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}`);
+      }
+
+      const data = await response.json();
+      const text = extractTextFromResponse(data);
+      const parsed = extractJsonObject<any>(text);
+
+      if (!parsed) {
+        throw new Error('Invalid response format');
+      }
+
+      return {
+        topic,
+        supportingNotes: parsed.supportingNotes || [],
+        contradictingNotes: parsed.contradictingNotes || [],
+        synthesisNotes: parsed.synthesisNotes || [],
+        evolution: (parsed.evolution || []).map((e: any) => ({
+          date: new Date(e.date),
+          noteId: e.noteId,
+          stance: e.stance,
+        })),
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Analysis failed';
+      throw new Error(`Argument analysis error: ${message}`);
+    }
+  },
+
+  async extractContent(
+    source: string,
+    type: 'url' | 'text',
+    existingNotes: Array<{ id: string; title: string; content: string; tags: string[] }>
+  ): Promise<ExtractedContent> {
+    if (!hasValidApiKey(GEMINI_API_KEY)) {
+      throw new Error('API key required for Reading Integration');
+    }
+
+    try {
+      // For URLs, we'd need to fetch content first (simplified here)
+      const contentToAnalyze = type === 'text' ? source : source;
+
+      const noteContext = existingNotes.slice(0, 20).map(note =>
+        `"${note.title}" (Tags: ${note.tags.join(', ')})`
+      ).join('\n');
+
+      const prompt = [
+        'You are a content extraction and linking engine. Extract key information and link to existing notes.',
+        '',
+        'Source Content:',
+        contentToAnalyze.slice(0, 2000),
+        '',
+        'Existing Notes:',
+        noteContext,
+        '',
+        'Task: Extract and analyze the content.',
+        'Return ONLY valid JSON with this shape:',
+        '{',
+        '  "title": "...",',
+        '  "keyPoints": ["...", "..."],',
+        '  "summary": "...",',
+        '  "suggestedTags": ["...", "..."],',
+        '  "linkedNoteIds": ["..."]',
+        '}',
+        '',
+        'linkedNoteIds should contain IDs of existing notes that relate to this content.',
+      ].join('\n');
+
+      const response = await fetch(getGeminiEndpoint(GEMINI_MODEL), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': GEMINI_API_KEY,
+        },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.4, maxOutputTokens: 1024 },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}`);
+      }
+
+      const data = await response.json();
+      const text = extractTextFromResponse(data);
+      const parsed = extractJsonObject<ExtractedContent>(text);
+
+      if (!parsed) {
+        throw new Error('Invalid response format');
+      }
+
+      return {
+        title: parsed.title || 'Imported Content',
+        keyPoints: parsed.keyPoints || [],
+        summary: parsed.summary || '',
+        suggestedTags: parsed.suggestedTags || [],
+        linkedNoteIds: parsed.linkedNoteIds || [],
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Extraction failed';
+      throw new Error(`Content extraction error: ${message}`);
     }
   },
 };

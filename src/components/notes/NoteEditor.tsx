@@ -7,6 +7,7 @@ import { useDebounce } from '@/hooks/useDebounce.ts';
 import { Button } from '@/components/common/index.ts';
 import { TagInput } from './TagInput.tsx';
 import { MarkdownPreview } from './MarkdownPreview.tsx';
+import { ResurfacingPanel } from '@/components/resurfacing/index.ts';
 
 interface NoteEditorProps {
   note: Note;
@@ -206,6 +207,9 @@ export function NoteEditor({ note }: NoteEditorProps) {
             </div>
           </Allotment.Pane>
         </Allotment>
+
+        {/* Smart Resurfacing Panel */}
+        <ResurfacingPanel currentNote={note} />
       </div>
     </div>
   );
