@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-type View = 'editor' | 'graph' | 'split';
+type View = 'editor' | 'graph' | 'search' | 'temporal' | 'split';
 type EditorMode = 'edit' | 'preview' | 'split';
 type SidebarTab = 'notes' | 'groupings';
 

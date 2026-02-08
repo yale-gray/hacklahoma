@@ -70,6 +70,26 @@ export function Header() {
           >
             Map
           </button>
+          <button
+            onClick={() => setView('search')}
+            className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+              currentView === 'search'
+                ? 'bg-[#d4a574] text-[#1a0f0a]'
+                : 'text-[#d4a574] hover:text-[#e8dcc4] hover:bg-[#2d1f14]'
+            }`}
+          >
+            Search
+          </button>
+          <button
+            onClick={() => setView('temporal')}
+            className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+              currentView === 'temporal'
+                ? 'bg-[#d4a574] text-[#1a0f0a]'
+                : 'text-[#d4a574] hover:text-[#e8dcc4] hover:bg-[#2d1f14]'
+            }`}
+          >
+            Timeline
+          </button>
         </div>
       </div>
 

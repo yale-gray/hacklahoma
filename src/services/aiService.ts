@@ -8,6 +8,12 @@ export interface AINoteDraft {
   content: string;
 }
 
+export interface AISynthesis {
+  title: string;
+  content: string;
+  sourceNoteIds: string[];
+}
+
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const GEMINI_MODEL = import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.5-flash';
 
@@ -340,5 +346,151 @@ export const aiService = {
     }
 
     throw new Error(errorMessage);
+  },
+
+  async synthesizeChapter(chapterTag: string, notes: Array<{ id: string; title: string; content: string }>): Promise<AISynthesis> {
+    if (!hasValidApiKey(GEMINI_API_KEY)) {
+      throw new Error('API key required for AI Knowledge Synthesis');
+    }
+
+    try {
+      // Prepare note summaries for the prompt
+      const noteSummaries = notes.map((note, idx) =>
+        `[${idx + 1}] "${note.title}"\n${note.content.slice(0, 300)}${note.content.length > 300 ? '...' : ''}`
+      ).join('\n\n');
+
+      const prompt = [
+        'You are a knowledge synthesis engine that creates meta-insights by combining related notes.',
+        '',
+        `Task: Analyze the ${notes.length} notes below, all tagged with "#${chapterTag}". Create a synthesized meta-note that:`,
+        '1. Identifies overarching patterns, themes, and connections between the notes',
+        '2. Extracts key insights that emerge when viewing these notes together',
+        '3. Highlights contradictions, complementary ideas, or knowledge gaps',
+        '4. Creates a coherent narrative that elevates understanding beyond individual notes',
+        '',
+        'Return ONLY valid JSON with this shape:',
+        '{"title":"...", "content":"..."}',
+        '',
+        'Constraints:',
+        '- title: Should reflect the synthesis theme (e.g., "Synthesis: [Theme Name]")',
+        '- content: 200-400 words. Include citations like [1], [2] to reference source notes.',
+        '- Write in an engaging, insightful tone that reveals emergent knowledge',
+        '- Do NOT just summarize each note — find the meta-patterns',
+        '',
+        `Chapter Tag: #${chapterTag}`,
+        `Number of Notes: ${notes.length}`,
+        '',
+        'Source Notes:',
+        noteSummaries,
+      ].join('\n');
+
+      const response = await fetch(getGeminiEndpoint(GEMINI_MODEL), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': GEMINI_API_KEY,
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: prompt }],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 2048,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API returned ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      const text = extractTextFromResponse(data);
+      const parsed = extractJsonObject<{ title: string; content: string }>(text);
+
+      if (!parsed?.title || !parsed?.content) {
+        throw new Error('Invalid response format from AI');
+      }
+
+      return {
+        title: parsed.title.trim(),
+        content: parsed.content.trim(),
+        sourceNoteIds: notes.map(n => n.id),
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Synthesis failed';
+      throw new Error(`AI Knowledge Synthesis error: ${message}`);
+    }
+  },
+
+  async searchKnowledge(query: string, notes: Array<{ id: string; title: string; content: string; tags: string[] }>): Promise<string> {
+    if (!hasValidApiKey(GEMINI_API_KEY)) {
+      throw new Error('API key required for Conversational Knowledge Search');
+    }
+
+    try {
+      // Prepare note context for the prompt
+      const noteContext = notes.slice(0, 20).map((note, idx) =>
+        `[${idx + 1}] "${note.title}" (Tags: ${note.tags.join(', ')})\n${note.content.slice(0, 200)}${note.content.length > 200 ? '...' : ''}`
+      ).join('\n\n');
+
+      const prompt = [
+        'You are a conversational knowledge search assistant. The user has a personal knowledge base of notes.',
+        '',
+        `User Question: "${query}"`,
+        '',
+        'Task: Answer the user\'s question using ONLY the information from their notes below.',
+        'If the answer cannot be found in the notes, say so clearly.',
+        'Cite specific notes using [1], [2] notation.',
+        'Be conversational and helpful, not robotic.',
+        '',
+        `Available Notes (${notes.length} total, showing first 20):`,
+        noteContext,
+        '',
+        'Your response:',
+      ].join('\n');
+
+      const response = await fetch(getGeminiEndpoint(GEMINI_MODEL), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': GEMINI_API_KEY,
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: prompt }],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 1024,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API returned ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      const answer = extractTextFromResponse(data);
+
+      if (!answer) {
+        throw new Error('No response from AI');
+      }
+
+      return answer.trim();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Search failed';
+      throw new Error(`Knowledge Search error: ${message}`);
+    }
   },
 };

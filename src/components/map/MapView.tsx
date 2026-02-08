@@ -5,6 +5,8 @@ import { useUIStore } from '@/stores/uiStore';
 import { computeChapters } from '@/services/chapterService';
 import { db } from '@/db/database';
 import type { NoteLink } from '@/types/note';
+import type { Chapter } from '@/types/chapter';
+import { SynthesisPanel } from './SynthesisPanel';
 
 interface GraphNode {
   id: string;
@@ -34,6 +36,7 @@ export function MapView() {
   const graphRef = useRef<any>(null);
   const [noteLinks, setNoteLinks] = useState<NoteLink[]>([]);
   const [showTagLinks, setShowTagLinks] = useState(true);
+  const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
 
   // Load note links from database
   useEffect(() => {
@@ -141,10 +144,44 @@ export function MapView() {
       if (node.type === 'note') {
         setActiveNote(node.id);
         setView('editor');
+      } else if (node.type === 'chapter') {
+        // When clicking a chapter, show synthesis panel and zoom to it
+        const chapters = computeChapters(notes, groupingMinSize);
+        const chapter = chapters.find(c => `chapter:${c.tag}` === node.id);
+        if (chapter) {
+          setSelectedChapter(chapter);
+        }
+
+        const graph = graphRef.current;
+        if (graph) {
+          // Get the chapter's connected notes
+          const chapterId = node.id;
+          const connectedNodes = graphData.nodes.filter((n: GraphNode) => {
+            if (n.id === chapterId) return true;
+            // Check if this note has a link to the chapter
+            return graphData.links.some((link: GraphLink) =>
+              (link.source === chapterId && link.target === n.id) ||
+              (link.target === chapterId && link.source === n.id)
+            );
+          });
+
+          // Focus on the chapter node
+          if (connectedNodes.length > 0) {
+            graph.centerAt(node.x, node.y, 400);
+            graph.zoom(2, 400);
+          }
+        }
       }
     },
-    [setActiveNote, setView]
+    [setActiveNote, setView, graphData, notes, groupingMinSize]
   );
+
+  // Double-click to unpin a node
+  const handleNodeRightClick = useCallback((node: any) => {
+    // Release the node from fixed position
+    node.fx = undefined;
+    node.fy = undefined;
+  }, []);
 
   const getNodeColor = useCallback((node: GraphNode) => {
     if (node.type === 'chapter') {
@@ -239,10 +276,33 @@ export function MapView() {
         linkColor={getLinkColor}
         linkWidth={getLinkWidth}
         onNodeClick={handleNodeClick}
+        onNodeRightClick={handleNodeRightClick}
+        onNodeHover={(node: any) => {
+          if (node) {
+            document.body.style.cursor = 'move';
+          } else {
+            document.body.style.cursor = 'default';
+          }
+        }}
+        onNodeDrag={(node: any) => {
+          // Allow dragging by updating position
+          node.fx = node.x;
+          node.fy = node.y;
+        }}
+        onNodeDragEnd={(node: any) => {
+          // Fix position after drag
+          node.fx = node.x;
+          node.fy = node.y;
+        }}
         backgroundColor="transparent"
         linkDirectionalParticles={(link: any) => (link.type === 'wiki' ? 2 : 0)}
         linkDirectionalParticleWidth={2}
-        cooldownTicks={100}
+        cooldownTicks={50}
+        warmupTicks={50}
+        enableNodeDrag={true}
+        enableZoomInteraction={true}
+        enablePanInteraction={true}
+        d3VelocityDecay={0.3}
         nodeCanvasObject={(node: any, ctx, globalScale) => {
           const label = node.label;
           const fontSize = node.type === 'chapter' ? 14 / globalScale : 10 / globalScale;
@@ -311,7 +371,10 @@ export function MapView() {
           </div>
         </div>
         <p className="text-xs italic mt-2 text-[#d4a574]/80" style={{ fontFamily: 'serif' }}>
-          Click a note to open it
+          Click notes to open • Click chapters to zoom
+        </p>
+        <p className="text-xs italic mt-1 text-[#d4a574]/60" style={{ fontFamily: 'serif' }}>
+          Drag nodes to move • Right-click to unpin • Scroll to zoom
         </p>
       </div>
 
@@ -332,6 +395,65 @@ export function MapView() {
           Direct links between notes with shared tags
         </p>
       </div>
+
+      {/* Zoom Controls */}
+      <div className="absolute bottom-4 right-4 flex flex-col gap-2">
+        <button
+          onClick={() => {
+            const graph = graphRef.current;
+            if (graph) {
+              const currentZoom = graph.zoom();
+              graph.zoom(currentZoom * 1.3, 400);
+            }
+          }}
+          className="w-10 h-10 bg-[#1a0f0a]/90 rounded-lg shadow-lg backdrop-blur-sm border-2 border-[#d4a574]/50 flex items-center justify-center text-[#d4a574] hover:bg-[#2d1f14] transition-colors"
+          title="Zoom In"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+        </button>
+        <button
+          onClick={() => {
+            const graph = graphRef.current;
+            if (graph) {
+              const currentZoom = graph.zoom();
+              graph.zoom(currentZoom / 1.3, 400);
+            }
+          }}
+          className="w-10 h-10 bg-[#1a0f0a]/90 rounded-lg shadow-lg backdrop-blur-sm border-2 border-[#d4a574]/50 flex items-center justify-center text-[#d4a574] hover:bg-[#2d1f14] transition-colors"
+          title="Zoom Out"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+          </svg>
+        </button>
+        <button
+          onClick={() => {
+            const graph = graphRef.current;
+            if (graph) {
+              graph.zoomToFit(400, 50);
+            }
+          }}
+          className="w-10 h-10 bg-[#1a0f0a]/90 rounded-lg shadow-lg backdrop-blur-sm border-2 border-[#d4a574]/50 flex items-center justify-center text-[#d4a574] hover:bg-[#2d1f14] transition-colors"
+          title="Reset View"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+          </svg>
+        </button>
+      </div>
+
+      {/* AI Synthesis Panel */}
+      <SynthesisPanel
+        chapter={selectedChapter}
+        onClose={() => setSelectedChapter(null)}
+        onNoteCreated={(noteId) => {
+          setSelectedChapter(null);
+          setActiveNote(noteId);
+          setView('editor');
+        }}
+      />
     </div>
   );
 }

@@ -3,6 +3,8 @@ import { ErrorBoundary } from '@/components/common/index.ts';
 import { AppLayout } from '@/components/layout/index.ts';
 import { NoteEditor } from '@/components/notes/index.ts';
 import { MapView } from '@/components/map/index.ts';
+import { KnowledgeChat } from '@/components/search/index.ts';
+import { TemporalGraph } from '@/components/temporal/index.ts';
 import { useNoteStore } from '@/stores/noteStore.ts';
 import { useUIStore } from '@/stores/uiStore.ts';
 
@@ -28,6 +30,10 @@ export default function App() {
       <AppLayout>
         {currentView === 'graph' ? (
           <MapView />
+        ) : currentView === 'search' ? (
+          <KnowledgeChat />
+        ) : currentView === 'temporal' ? (
+          <TemporalGraph />
         ) : activeNote ? (
           <NoteEditor note={activeNote} />
         ) : (
