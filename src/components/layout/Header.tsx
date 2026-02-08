@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { useNoteStore } from '@/stores/noteStore.ts';
 import { useUIStore } from '@/stores/uiStore.ts';
 import { Button } from '@/components/common/index.ts';
+import { aiService } from '@/services/aiService.ts';
 
 export function Header() {
   const createNote = useNoteStore((s) => s.createNote);
@@ -14,140 +16,23 @@ export function Header() {
     createNote({ title: 'Untitled', content: '', tags: [] });
   };
 
-  const handleSeedNotes = async () => {
-    const seedNotes = [
-      {
-        title: 'Potion Brewing Basics',
-        content: `A comprehensive guide to potion brewing.
+  const [isGenerating, setIsGenerating] = useState(false);
 
-Key ingredients include moonstone dust and dragon scales.
-See also [[Advanced Potion Techniques]] for more complex recipes.
-
-Safety is paramount when working with volatile ingredients.`,
-        tags: ['magic', 'potions', 'tutorial'],
-      },
-      {
-        title: 'Advanced Potion Techniques',
-        content: `Advanced methods for experienced brewers.
-
-Building on [[Potion Brewing Basics]], this covers:
-- Time-turner elixirs
-- Polyjuice variations
-- Veritaserum synthesis
-
-Referenced in [[Dark Arts Defense]].`,
-        tags: ['magic', 'potions', 'advanced'],
-      },
-      {
-        title: 'Spell Casting Fundamentals',
-        content: `Every wizard must master these core principles.
-
-The wand chooses the wizard. Proper pronunciation is critical.
-See [[Defensive Spells]] for practical applications.`,
-        tags: ['magic', 'spells', 'tutorial'],
-      },
-      {
-        title: 'Defensive Spells',
-        content: `Essential protection spells every student should know.
-
-Protego, Expelliarmus, and Stupefy are covered in [[Spell Casting Fundamentals]].
-These techniques are crucial for [[Dark Arts Defense]].`,
-        tags: ['magic', 'spells', 'defense'],
-      },
-      {
-        title: 'Dark Arts Defense',
-        content: `Protecting against the unforgivable curses.
-
-Requires mastery of [[Defensive Spells]] and understanding from [[Advanced Potion Techniques]].
-Always be vigilant. Constant vigilance!`,
-        tags: ['magic', 'defense', 'advanced'],
-      },
-      {
-        title: 'Herbology Garden Notes',
-        content: `Magical plants and their properties.
-
-Mandrakes, Venomous Tentacula, and Devil's Snare.
-Many ingredients used in [[Potion Brewing Basics]].`,
-        tags: ['magic', 'herbology', 'nature'],
-      },
-      {
-        title: 'Transfiguration Theory',
-        content: `The science of changing form and appearance.
-
-From simple objects to complex living things.
-Relates to concepts in [[Spell Casting Fundamentals]].`,
-        tags: ['magic', 'transfiguration', 'theory'],
-      },
-      {
-        title: 'Quidditch Strategy Guide',
-        content: `Winning tactics for seekers, chasers, and keepers.
-
-The Wronski Feint and Parkin's Pincer.
-Physical training is as important as magical ability.`,
-        tags: ['sports', 'quidditch', 'strategy'],
-      },
-      {
-        title: 'Magical Creatures Encyclopedia',
-        content: `A field guide to fantastic beasts.
-
-Dragons, hippogriffs, and thestrals. Each requires special handling.
-See [[Herbology Garden Notes]] for creature care supplies.`,
-        tags: ['magic', 'creatures', 'nature'],
-      },
-      {
-        title: 'Astronomy Observations',
-        content: `Celestial patterns and their magical significance.
-
-Jupiter's moons, Mars retrograde, and lunar phases.
-Important for timing in [[Potion Brewing Basics]].`,
-        tags: ['magic', 'astronomy', 'theory'],
-      },
-      {
-        title: 'Divination Methods',
-        content: `Reading tea leaves, crystal balls, and the stars.
-
-A controversial art. See [[Astronomy Observations]] for celestial divination.
-The future is not set in stone.`,
-        tags: ['magic', 'divination', 'theory'],
-      },
-      {
-        title: 'History of Magic',
-        content: `Ancient wizards and the founding of Hogwarts.
-
-The four founders: Gryffindor, Slytherin, Ravenclaw, and Hufflepuff.
-Understanding our past shapes our future magic.`,
-        tags: ['history', 'theory', 'hogwarts'],
-      },
-      {
-        title: 'Charms Classroom Notes',
-        content: `Levitation, summoning, and banishing charms.
-
-Wingardium Leviosa! Practice makes perfect.
-Foundation for [[Spell Casting Fundamentals]].`,
-        tags: ['magic', 'charms', 'tutorial'],
-      },
-      {
-        title: 'Ancient Runes Translation',
-        content: `Deciphering magical inscriptions and texts.
-
-Elder Futhark and their magical applications.
-Connected to [[History of Magic]].`,
-        tags: ['magic', 'runes', 'theory'],
-      },
-      {
-        title: 'Magical Theory Principles',
-        content: `The fundamental laws governing magic.
-
-Gamp's Law of Elemental Transfiguration.
-Underlies all magical practice from [[Transfiguration Theory]] to [[Charms Classroom Notes]].`,
-        tags: ['magic', 'theory', 'advanced'],
-      },
-    ];
-
-    for (const note of seedNotes) {
-      await createNote(note);
+  const handleGenerateNote = async () => {
+    if (isGenerating) return;
+    setIsGenerating(true);
+    try {
+      const draft = await aiService.generateRandomNote();
+      await createNote({ title: draft.title || 'Untitled', content: draft.content, tags: [] });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to generate note.';
+      console.error(message);
+      window.alert(`Could not generate note: ${message}`);
+    } finally {
+      setIsGenerating(false);
     }
   };
+
 
   return (
     <header className="flex-shrink-0 h-14 flex items-center justify-between px-6 border-b-2 border-[#d4a574]/50 bg-[#1a0f0a] shadow-lg relative">
@@ -189,10 +74,15 @@ Underlies all magical practice from [[Transfiguration Theory]] to [[Charms Class
       </div>
 
       <div className="flex items-center gap-2 relative z-10">
-        <Button variant="secondary" size="sm" onClick={handleSeedNotes}>
-          Seed Notes
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={handleGenerateNote}
+          loading={isGenerating}
+        >
+          Generate New Note
         </Button>
-        <Button variant="primary" size="sm" onClick={handleNewNote}>
+<Button variant="primary" size="sm" onClick={handleNewNote}>
           + New Note
         </Button>
         <button

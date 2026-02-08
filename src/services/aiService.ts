@@ -3,6 +3,11 @@ export interface AIEnrichment {
   autoTags: string[];
 }
 
+export interface AINoteDraft {
+  title: string;
+  content: string;
+}
+
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const GEMINI_MODEL = import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.5-flash';
 
@@ -38,6 +43,17 @@ function extractJsonPayload(text: string): { summary?: string; autoTags?: string
   if (!match) return null;
   try {
     return JSON.parse(match[0]) as { summary?: string; autoTags?: string[] };
+  } catch {
+    return null;
+  }
+}
+
+function extractJsonObject<T>(text: string): T | null {
+  if (!text) return null;
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) return null;
+  try {
+    return JSON.parse(match[0]) as T;
   } catch {
     return null;
   }
@@ -119,7 +135,7 @@ function generateAutoTags(content: string): string[] {
   return tags;
 }
 
-function ensureTagCount(tags: string[], min = 3, max = 5): string[] {
+function ensureTagCount(tags: string[], min = 2, max = 4): string[] {
   const unique = normalizeTags(tags);
   if (unique.length <= max && unique.length >= min) return unique;
   if (unique.length > max) return unique.slice(0, max);
@@ -132,7 +148,7 @@ function removeTitleTags(tags: string[], title: string): string[] {
   return tags.filter((tag) => !titleTokens.has(tag) && tag !== 'untitled');
 }
 
-function finalizeTags(tags: string[], title: string, content: string, min = 3, max = 5): string[] {
+function finalizeTags(tags: string[], title: string, content: string, min = 2, max = 4): string[] {
   const filtered = removeTitleTags(tags, title);
   if (filtered.length >= min) {
     return filtered.slice(0, max);
@@ -153,23 +169,132 @@ function finalizeTags(tags: string[], title: string, content: string, min = 3, m
 }
 
 export const aiService = {
+  async generateRandomNote(): Promise<AINoteDraft> {
+    if (hasValidApiKey(GEMINI_API_KEY)) {
+      try {
+        const domains = [
+          'history', 'biology', 'physics', 'philosophy', 'music', 'architecture',
+          'linguistics', 'astronomy', 'psychology', 'culinary arts', 'mathematics',
+          'anthropology', 'geology', 'oceanography', 'mythology', 'botany',
+          'urban planning', 'game theory', 'cryptography', 'neuroscience',
+          'paleontology', 'materials science', 'cartography', 'folklore',
+          'behavioral economics', 'optics', 'acoustics', 'epidemiology',
+          'typography', 'ethology', 'meteorology', 'fermentation science',
+        ];
+        const domain = domains[Math.floor(Math.random() * domains.length)];
+        const seed = Math.floor(Math.random() * 1_000_000);
+
+        const prompt = [
+          'You are an assistant that generates a single random note.',
+          'Return ONLY valid JSON with this shape:',
+          '{"title":"...", "content":"..."}',
+          'Constraints:',
+          '- content: 100-150 words.',
+          `- topic: pick a specific, surprising, lesser-known fact or idea from the domain of "${domain}". Do NOT write a general overview — pick one narrow, concrete subtopic.`,
+          `- random seed: ${seed} (use this to vary your output).`,
+          '- tone: thoughtful, informative, first-person optional.',
+          '- no markdown, no bullet lists.',
+        ].join('\n');
+
+        const response = await fetch(getGeminiEndpoint(GEMINI_MODEL), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': GEMINI_API_KEY,
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: 'user',
+                parts: [{ text: prompt }],
+              },
+            ],
+            generationConfig: {
+              temperature: 0.9,
+              maxOutputTokens: 2048,
+              thinkingConfig: { thinkingBudget: 0 },
+            },
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const text = extractTextFromResponse(data);
+          const parsed = extractJsonObject<AINoteDraft>(text);
+          if (parsed?.title && parsed?.content) {
+            return {
+              title: parsed.title.trim().slice(0, 80),
+              content: parsed.content.trim(),
+            };
+          }
+          console.error('generateRandomNote: failed to parse response:', text);
+        } else {
+          const errorText = await response.text();
+          console.error('generateRandomNote: API returned', response.status, errorText);
+        }
+      } catch (err) {
+        console.error('generateRandomNote API error:', err);
+        // fall through to local fallback
+      }
+    }
+
+    const fallbacks: AINoteDraft[] = [
+      { title: 'The Secret Life of City Trees', content: 'Urban trees live dramatically different lives than their forest counterparts. A street tree in Manhattan might process five times more pollutants than a rural oak, and its roots navigate a labyrinth of pipes and cables. Cities like Melbourne have assigned email addresses to individual trees so citizens can report problems — and people started writing them love letters instead. The canopy of a single mature city tree can intercept over 500 gallons of rainfall per year, reducing flood risk block by block.' },
+      { title: 'Why Mirrors Flip Left and Right but Not Up and Down', content: 'Mirrors do not actually flip left and right. What they reverse is front and back — your reflection is a depth-inverted copy of you. We perceive it as a left-right swap because we mentally rotate the image to compare it with ourselves. If you imagine walking around behind the mirror, everything lines up. The confusion is a cognitive shortcut, not a property of light or glass.' },
+      { title: 'The Invention of Blue', content: 'Ancient languages often lacked a word for blue. Homer described the sea as "wine-dark." The Egyptians were among the first to manufacture a blue pigment around 2200 BC by heating limestone, sand, and copper. For centuries, the only source of blue paint in Europe was lapis lazuli from Afghanistan, making it more expensive than gold. Ultramarine was reserved for the robes of the Virgin Mary in Renaissance paintings.' },
+      { title: 'How Mushrooms Talk', content: 'Fungi generate electrical impulses that travel along their hyphae in patterns strikingly similar to nerve signals. Researchers have recorded up to 50 distinct signal clusters, which some interpret as a rudimentary vocabulary. Mycelial networks connect trees in forests, allowing them to share nutrients and chemical warnings. A single fungal network in Oregon spans 2,385 acres, making it one of the largest living organisms on Earth.' },
+      { title: 'The Coastline Paradox', content: 'The length of a coastline depends on the ruler you use to measure it. With a 100-kilometer ruler, Britain has one length; with a 10-meter ruler, it has a vastly longer one. As your measurement unit shrinks, the coastline length approaches infinity. Benoit Mandelbrot used this observation to develop fractal geometry, showing that many natural shapes cannot be described by traditional Euclidean dimensions at all.' },
+      { title: 'Why We Forget Dreams', content: 'The brain actively suppresses dream memories during the transition to waking. Norepinephrine, a chemical essential for forming new memories, drops to its lowest levels during REM sleep. The hippocampus, which transfers short-term memories to long-term storage, is largely offline during dreaming. If you wake suddenly during REM, you catch a brief window before the memory fades — which is why alarm clocks sometimes preserve fragments.' },
+      { title: 'The Weight of a Cloud', content: 'A typical cumulus cloud weighs about 500,000 kilograms — roughly the mass of 80 elephants. It stays aloft because that weight is distributed across billions of tiny water droplets spread over a huge volume, and the rising air beneath it pushes upward faster than the droplets fall. When droplets coalesce and grow heavy enough to overcome the updraft, it rains.' },
+      { title: 'How Concrete Changed Rome', content: 'Roman concrete, or opus caementicium, used volcanic ash that reacted with seawater to become stronger over time. Modern Portland cement begins degrading within decades, but Roman harbor structures have lasted 2,000 years. Scientists discovered that seawater filtering through the concrete grows interlocking mineral crystals that reinforce the material. We are still trying to replicate this self-healing property today.' },
+      { title: 'Perfect Numbers and Ancient Greeks', content: 'A perfect number equals the sum of its proper divisors: 6 is 1+2+3, and 28 is 1+2+4+7+14. The Greeks considered them mystical — Euclid proved a formula for generating even perfect numbers around 300 BC. We still do not know whether any odd perfect numbers exist. As of today, only 51 perfect numbers have been found, and every one of them is even. The largest has over 49 million digits.' },
+      { title: 'The Language of Whistles', content: 'In the Canary Islands, Silbo Gomero is a whistled language that carries across deep ravines for up to five kilometers. It encodes Spanish into two vowel and four consonant whistled sounds. Brain scans show that speakers process Silbo in the same language centers used for spoken speech, not in auditory or music areas. UNESCO recognized it as an intangible cultural heritage, and it is now taught in local schools.' },
+      { title: 'Why Old Books Smell', content: 'The distinctive scent of old books comes from the chemical breakdown of cellulose and lignin in the paper. As these compounds decompose, they release vanillin, benzaldehyde, and other volatile organic compounds. Vanillin gives a faint vanilla sweetness, while benzaldehyde adds an almond-like note. Researchers have even proposed using chemical analysis of these gases to assess the degradation state of books without touching them.' },
+      { title: 'The Mpemba Effect', content: 'Under certain conditions, hot water can freeze faster than cold water. First documented by Aristotle and rediscovered by Tanzanian student Erasto Mpemba in 1963, the phenomenon still lacks a universally accepted explanation. Proposed mechanisms include evaporation reducing the volume of hot water, dissolved gases escaping more readily, and differences in convection currents. Despite decades of experiments, the effect remains one of the most debated puzzles in thermodynamics.' },
+    ];
+    const idx = Math.floor(Math.random() * fallbacks.length);
+    return fallbacks[idx];
+  },
   async summarizeAndTag(title: string, content: string): Promise<AIEnrichment> {
     let errorMessage = 'error generating tags from gemini';
     if (hasValidApiKey(GEMINI_API_KEY)) {
       try {
         const prompt = [
-          'You are an assistant that summarizes notes and produces tags.',
+          'System Role: You are a semantic analysis engine specialized in knowledge graph construction. Your goal is to identify the \"atomic concepts\" within a text—ideas that are specific enough to be unique, but universal enough to connect to other disciplines.',
+          '',
+          'Task: Analyze the provided note and generate exactly 2–4 tags.',
+          '',
+          'Tagging Constraints:',
+          '',
+          'Granularity over Generalization: Avoid broad category tags (e.g., do NOT use \"Philosophy,\" \"Science,\" or \"Math\"). Instead, identify the specific sub-branch or core mechanism (e.g., \"Epistemology,\" \"Stochasticity,\" or \"Optimization\").',
+          '',
+          'Format: Tags must be 1 word (hyphenated only if absolutely necessary).',
+          '',
+          'Connectivity: Choose tags that represent the functional or thematic core of the text. Ask yourself: \"If this idea appeared in a completely different field, what would that bridge be called?\"',
+          '',
+          'No Redundancy: Each tag should represent a distinct conceptual dimension of the note.',
+          '',
+          'Example 1 (Text about Marcus Aurelius and daily routine):',
+          '',
+          'Tags: [Stoicism, Discipline, Temporality]',
+          '',
+          'Example 2 (Text about neural network backpropagation):',
+          '',
+          'Tags: [Calculus, Optimization, Feedback]',
+          '',
+          'Example 3 (Text about the heat death of the universe):',
+          '',
+          'Tags: [Entropy, Equilibrium, Cosmology]',
+          '',
           'Return ONLY valid JSON with this shape:',
           '{"summary":"...", "autoTags":["tag1","tag2"]}',
           'Constraints:',
           '- summary: 1-2 sentences, max 240 characters.',
-          '- autoTags: 3-5 lowercase, concise theme-level tags.',
-          '- Only include tags that reflect the core topic. Avoid incidental details.',
-          '- Avoid proper names, dates, or one-off specifics unless they are the core topic.',
+          '- autoTags: 2-4 tags as defined above.',
           '- Do not use the title words as tags; tags must come from the body content.',
           '',
+          `Input Text: ${content || ''}`,
           `Title: ${title || 'Untitled'}`,
-          `Content: ${content || ''}`,
         ].join('\n');
 
         const response = await fetch(getGeminiEndpoint(GEMINI_MODEL), {
@@ -196,10 +321,10 @@ export const aiService = {
           const text = extractTextFromResponse(data);
           const parsed = extractJsonPayload(text);
           if (parsed?.summary) {
-            const autoTags = finalizeTags(parsed.autoTags ?? [], title, content, 3, 5);
+            const autoTags = finalizeTags(parsed.autoTags ?? [], title, content, 2, 4);
             return {
               summary: parsed.summary.trim().slice(0, 240),
-              autoTags,
+              autoTags: ensureTagCount(autoTags, 2, 4),
             };
           }
           errorMessage = 'error generating tags from gemini: invalid response format';
@@ -214,8 +339,6 @@ export const aiService = {
       errorMessage = 'error generating tags from gemini: missing api key';
     }
 
-    const summary = generateSummary(title, content);
-    const autoTags = finalizeTags(generateAutoTags(content), title, content, 3, 5);
-    return { summary, autoTags };
+    throw new Error(errorMessage);
   },
 };

@@ -220,41 +220,276 @@ body {
     4px 4px 12px rgba(0,0,0,0.5);
 }
 
-/* Book color variations */
+/* Book color variations — dark academia leather & cloth */
 .book-spine-color-0 {
-  background: linear-gradient(90deg, #4a3426 0%, #5a4436 50%, #4a3426 100%);
-  border-left: 2px solid rgba(139, 90, 43, 0.4);
-  border-right: 1px solid rgba(0, 0, 0, 0.3);
+  background:
+    repeating-linear-gradient(180deg, transparent, transparent 8px, rgba(0,0,0,0.04) 8px, rgba(0,0,0,0.04) 9px),
+    linear-gradient(90deg, #3a2418 0%, #5a3c2a 30%, #4a3020 70%, #3a2418 100%);
+  border-left: 2px solid rgba(139, 90, 43, 0.5);
+  border-right: 1px solid rgba(0, 0, 0, 0.4);
 }
 
 .book-spine-color-1 {
-  background: linear-gradient(90deg, #2d4a3a 0%, #3d5a4a 50%, #2d4a3a 100%);
-  border-left: 2px solid rgba(90, 139, 90, 0.4);
-  border-right: 1px solid rgba(0, 0, 0, 0.3);
+  background:
+    repeating-linear-gradient(180deg, transparent, transparent 6px, rgba(0,0,0,0.03) 6px, rgba(0,0,0,0.03) 7px),
+    linear-gradient(90deg, #1e3328 0%, #2d4a3a 30%, #243a2e 70%, #1e3328 100%);
+  border-left: 2px solid rgba(70, 120, 80, 0.5);
+  border-right: 1px solid rgba(0, 0, 0, 0.4);
 }
 
 .book-spine-color-2 {
-  background: linear-gradient(90deg, #3a2a4a 0%, #4a3a5a 50%, #3a2a4a 100%);
-  border-left: 2px solid rgba(139, 90, 139, 0.4);
-  border-right: 1px solid rgba(0, 0, 0, 0.3);
+  background:
+    repeating-linear-gradient(180deg, transparent, transparent 7px, rgba(0,0,0,0.04) 7px, rgba(0,0,0,0.04) 8px),
+    linear-gradient(90deg, #2a1a38 0%, #3e2a50 30%, #321e42 70%, #2a1a38 100%);
+  border-left: 2px solid rgba(100, 70, 130, 0.5);
+  border-right: 1px solid rgba(0, 0, 0, 0.4);
 }
 
 .book-spine-color-3 {
-  background: linear-gradient(90deg, #4a3a2a 0%, #5a4a3a 50%, #4a3a2a 100%);
-  border-left: 2px solid rgba(139, 111, 90, 0.4);
-  border-right: 1px solid rgba(0, 0, 0, 0.3);
+  background:
+    repeating-linear-gradient(180deg, transparent, transparent 5px, rgba(0,0,0,0.03) 5px, rgba(0,0,0,0.03) 6px),
+    linear-gradient(90deg, #3e2e1c 0%, #5a4832 30%, #4a3a28 70%, #3e2e1c 100%);
+  border-left: 2px solid rgba(139, 111, 70, 0.5);
+  border-right: 1px solid rgba(0, 0, 0, 0.4);
 }
 
 .book-spine-color-4 {
-  background: linear-gradient(90deg, #1a2a3a 0%, #2a3a4a 50%, #1a2a3a 100%);
-  border-left: 2px solid rgba(90, 111, 139, 0.4);
-  border-right: 1px solid rgba(0, 0, 0, 0.3);
+  background:
+    repeating-linear-gradient(180deg, transparent, transparent 9px, rgba(0,0,0,0.04) 9px, rgba(0,0,0,0.04) 10px),
+    linear-gradient(90deg, #141e2a 0%, #1e3040 30%, #182838 70%, #141e2a 100%);
+  border-left: 2px solid rgba(60, 90, 130, 0.5);
+  border-right: 1px solid rgba(0, 0, 0, 0.4);
 }
 
 .book-spine-color-5 {
-  background: linear-gradient(90deg, #5b3413 0%, #6b4423 50%, #5b3413 100%);
-  border-left: 2px solid rgba(212, 165, 116, 0.4);
-  border-right: 1px solid rgba(0, 0, 0, 0.3);
+  background:
+    repeating-linear-gradient(180deg, transparent, transparent 6px, rgba(0,0,0,0.03) 6px, rgba(0,0,0,0.03) 7px),
+    linear-gradient(90deg, #4a2610 0%, #6b3a1a 30%, #5a3015 70%, #4a2610 100%);
+  border-left: 2px solid rgba(180, 130, 70, 0.5);
+  border-right: 1px solid rgba(0, 0, 0, 0.4);
+}
+
+/* ===== Groupings Tab — Horizontal Bookshelf ===== */
+
+/* Shelf label (tag name) */
+.shelf-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 12px;
+  background: linear-gradient(180deg, #2a1c10 0%, #1e1410 100%);
+  border-bottom: 1px solid rgba(212, 165, 116, 0.15);
+}
+
+.shelf-label-text {
+  font-family: 'Libre Baskerville', serif;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #d4a574;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+}
+
+.shelf-label-count {
+  font-family: 'Libre Baskerville', serif;
+  font-size: 9px;
+  color: #b8a88a;
+  background: rgba(212, 165, 116, 0.1);
+  border: 1px solid rgba(212, 165, 116, 0.2);
+  border-radius: 8px;
+  padding: 1px 6px;
+}
+
+/* Shelf row container */
+.shelf-row {
+  position: relative;
+  background:
+    repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(0,0,0,0.02) 3px, rgba(0,0,0,0.02) 4px),
+    linear-gradient(180deg, #1a1210 0%, #221a12 100%);
+}
+
+/* Scrollable book container */
+.shelf-books {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 8px 8px 0 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #4a3426 #1a1210;
+}
+
+.shelf-books::-webkit-scrollbar {
+  height: 4px;
+}
+
+.shelf-books::-webkit-scrollbar-track {
+  background: #1a1210;
+}
+
+.shelf-books::-webkit-scrollbar-thumb {
+  background: #4a3426;
+  border-radius: 2px;
+}
+
+/* Wooden shelf plank */
+.shelf-plank {
+  height: 8px;
+  background:
+    /* Wood grain */
+    repeating-linear-gradient(90deg, transparent, transparent 12px, rgba(0,0,0,0.08) 12px, rgba(0,0,0,0.08) 13px),
+    linear-gradient(180deg, #5a4030 0%, #4a3020 40%, #3a2418 100%);
+  border-top: 1px solid rgba(212, 165, 116, 0.15);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.4);
+  box-shadow:
+    0 3px 6px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Individual book on shelf — upright spine */
+.shelf-book {
+  position: relative;
+  border-radius: 1px 2px 1px 1px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  overflow: hidden;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.12),
+    inset 0 -1px 0 rgba(0,0,0,0.3),
+    1px 0 3px rgba(0,0,0,0.4),
+    -1px 0 2px rgba(0,0,0,0.2);
+}
+
+/* Leather/cloth texture overlay */
+.shelf-book::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background:
+    /* Subtle vertical grain (cloth weave) */
+    repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.02) 2px, rgba(255,255,255,0.02) 3px),
+    /* Edge highlight left */
+    linear-gradient(90deg, rgba(255,255,255,0.12) 0%, transparent 20%, transparent 80%, rgba(0,0,0,0.2) 100%);
+  border-radius: 1px 2px 1px 1px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Worn edge effect on top */
+.shelf-book::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.08) 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.shelf-book:hover {
+  transform: translateY(-6px);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.15),
+    inset 0 -1px 0 rgba(0,0,0,0.4),
+    2px 4px 12px rgba(0,0,0,0.6);
+  z-index: 5;
+}
+
+.shelf-book.active {
+  transform: translateY(-8px);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.2),
+    inset 0 -1px 0 rgba(0,0,0,0.4),
+    0 0 8px rgba(212, 165, 116, 0.3),
+    2px 4px 16px rgba(0,0,0,0.6);
+}
+
+/* Gold foil title — vertical text */
+.shelf-book-title {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(180deg);
+  writing-mode: vertical-rl;
+  font-family: 'Libre Baskerville', serif;
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #d4a574;
+  text-shadow:
+    0 0 4px rgba(212, 165, 116, 0.4),
+    0 1px 1px rgba(0,0,0,0.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-height: 85%;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Decorative gold line ornaments */
+.shelf-book-ornament-top,
+.shelf-book-ornament-bottom {
+  position: absolute;
+  left: 20%;
+  right: 20%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #d4a574 30%, #d4a574 70%, transparent);
+  opacity: 0.35;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.shelf-book-ornament-top {
+  top: 10px;
+}
+
+.shelf-book-ornament-bottom {
+  bottom: 10px;
+}
+
+/* Shelf book color variations — dark academia palette */
+.shelf-book-color-0 {
+  background:
+    repeating-linear-gradient(0deg, transparent, transparent 4px, rgba(0,0,0,0.03) 4px, rgba(0,0,0,0.03) 5px),
+    linear-gradient(180deg, #4a3020 0%, #3a2418 40%, #5a3828 60%, #3a2418 100%);
+}
+
+.shelf-book-color-1 {
+  background:
+    repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.03) 3px, rgba(0,0,0,0.03) 4px),
+    linear-gradient(180deg, #1e3328 0%, #2a4236 40%, #1e3328 60%, #24382e 100%);
+}
+
+.shelf-book-color-2 {
+  background:
+    repeating-linear-gradient(0deg, transparent, transparent 5px, rgba(0,0,0,0.04) 5px, rgba(0,0,0,0.04) 6px),
+    linear-gradient(180deg, #2a1a38 0%, #3a2848 40%, #2e1e3c 60%, #2a1a38 100%);
+}
+
+.shelf-book-color-3 {
+  background:
+    repeating-linear-gradient(0deg, transparent, transparent 4px, rgba(0,0,0,0.02) 4px, rgba(0,0,0,0.02) 5px),
+    linear-gradient(180deg, #3e2e1c 0%, #4a3a28 40%, #3e2e1c 60%, #44341e 100%);
+}
+
+.shelf-book-color-4 {
+  background:
+    repeating-linear-gradient(0deg, transparent, transparent 6px, rgba(0,0,0,0.04) 6px, rgba(0,0,0,0.04) 7px),
+    linear-gradient(180deg, #141e2a 0%, #1e2e3e 40%, #182636 60%, #141e2a 100%);
+}
+
+.shelf-book-color-5 {
+  background:
+    repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.03) 3px, rgba(0,0,0,0.03) 4px),
+    linear-gradient(180deg, #4a2610 0%, #5a3418 40%, #4a2610 60%, #522c12 100%);
 }
 
 .bookshelf-header {

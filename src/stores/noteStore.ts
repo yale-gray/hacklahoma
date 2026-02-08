@@ -34,17 +34,16 @@ export const useNoteStore = create<NoteState>()((set) => ({
   },
 
   createNote: async (input) => {
-    set({ isLoading: true, error: null });
+    set({ error: null });
     try {
       const note = await noteService.create(input);
       set((state) => ({
         notes: [note, ...state.notes],
         activeNoteId: note.id,
-        isLoading: false,
       }));
       return note;
     } catch (err) {
-      set({ error: (err as Error).message, isLoading: false });
+      set({ error: (err as Error).message });
       throw err;
     }
   },

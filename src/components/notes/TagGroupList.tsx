@@ -1,8 +1,39 @@
-import { useState } from 'react';
 import { useNoteStore } from '@/stores/noteStore.ts';
 import { useUIStore } from '@/stores/uiStore.ts';
-import { NoteListItem } from './NoteListItem.tsx';
 import { LoadingSpinner } from '@/components/common/index.ts';
+import type { Note } from '@/types/index.ts';
+
+function BookSpine({ note, isActive, onClick }: { note: Note; isActive: boolean; onClick: () => void }) {
+  const colorIndex = note.bookColor !== undefined
+    ? note.bookColor
+    : note.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 6;
+
+  // Vary height slightly for realism
+  const heightVariant = (note.id.charCodeAt(0) % 3);
+  const heights = ['h-[120px]', 'h-[130px]', 'h-[115px]'];
+  // Vary width slightly
+  const widthVariant = (note.id.charCodeAt(1) ?? 0) % 3;
+  const widths = ['w-[38px]', 'w-[42px]', 'w-[34px]'];
+
+  return (
+    <button
+      onClick={onClick}
+      className={`group relative flex-shrink-0 ${widths[widthVariant]} ${heights[heightVariant]} shelf-book shelf-book-color-${colorIndex} ${
+        isActive ? 'active' : ''
+      }`}
+      title={note.title || 'Untitled'}
+    >
+      {/* Gold foil title */}
+      <span className="shelf-book-title">
+        {note.title || 'Untitled'}
+      </span>
+      {/* Decorative line near top */}
+      <span className="shelf-book-ornament-top" />
+      {/* Decorative line near bottom */}
+      <span className="shelf-book-ornament-bottom" />
+    </button>
+  );
+}
 
 export function TagGroupList() {
   const notes = useNoteStore((s) => s.notes);
@@ -10,7 +41,6 @@ export function TagGroupList() {
   const setActiveNote = useNoteStore((s) => s.setActiveNote);
   const isLoading = useNoteStore((s) => s.isLoading);
   const groupingMinSize = useUIStore((s) => s.groupingMinSize);
-  const [collapsedTags, setCollapsedTags] = useState<Record<string, boolean>>({});
 
   if (isLoading) {
     return (
@@ -32,11 +62,13 @@ export function TagGroupList() {
     );
   }
 
-  const tagMap = new Map<string, typeof notes>();
+  const tagMap = new Map<string, Note[]>();
 
   for (const note of notes) {
-    if (!note.tags.length) continue;
-    for (const tag of note.tags) {
+    const allTags = [...note.tags, ...(note.autoTags ?? [])];
+    const uniqueTags = [...new Set(allTags)];
+    if (!uniqueTags.length) continue;
+    for (const tag of uniqueTags) {
       const existing = tagMap.get(tag);
       if (existing) {
         existing.push(note);
@@ -50,10 +82,6 @@ export function TagGroupList() {
     .filter((tag) => (tagMap.get(tag)?.length ?? 0) >= groupingMinSize)
     .sort((a, b) => a.localeCompare(b));
 
-  const toggleTag = (tag: string) => {
-    setCollapsedTags((prev) => ({ ...prev, [tag]: !prev[tag] }));
-  };
-
   if (sortedTags.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
@@ -66,34 +94,31 @@ export function TagGroupList() {
   }
 
   return (
-    <div className="overflow-y-auto flex-1">
+    <div className="overflow-y-auto flex-1 py-2">
       {sortedTags.map((tag) => {
         const items = tagMap.get(tag) ?? [];
-        const isCollapsed = collapsedTags[tag] ?? false;
         return (
-          <div key={tag} className="border-b-2 border-[#d4a574]/20">
-            <button
-              onClick={() => toggleTag(tag)}
-              className="w-full px-4 py-2.5 text-[11px] font-serif uppercase tracking-wide text-[#b8a88a] flex items-center justify-between hover:text-[#d4a574] hover:bg-[#2d1f14]/30 transition-colors"
-            >
-              <span>{tag} ({items.length})</span>
-              <svg
-                className={`w-3 h-3 transition-transform ${isCollapsed ? '-rotate-90' : ''}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            {!isCollapsed && items.map((note) => (
-              <NoteListItem
-                key={`${tag}-${note.id}`}
-                note={note}
-                isActive={note.id === activeNoteId}
-                onClick={() => setActiveNote(note.id)}
-              />
-            ))}
+          <div key={tag} className="mb-1">
+            {/* Shelf label */}
+            <div className="shelf-label">
+              <span className="shelf-label-text">{tag}</span>
+              <span className="shelf-label-count">{items.length}</span>
+            </div>
+            {/* Bookshelf row */}
+            <div className="shelf-row">
+              <div className="shelf-books">
+                {items.map((note) => (
+                  <BookSpine
+                    key={`${tag}-${note.id}`}
+                    note={note}
+                    isActive={note.id === activeNoteId}
+                    onClick={() => setActiveNote(note.id)}
+                  />
+                ))}
+              </div>
+              {/* Wooden shelf plank */}
+              <div className="shelf-plank" />
+            </div>
           </div>
         );
       })}
