@@ -15,6 +15,9 @@ interface UIState {
   sidebarTab: SidebarTab;
   settingsOpen: boolean;
   hoveredGroupTag: string | null;
+  customClusterColors: Record<string, string>; // tag -> hex color
+  landingMode: boolean;
+  showPageSlideUp: boolean;
 
   toggleDarkMode: () => void;
   toggleSidebar: () => void;
@@ -24,8 +27,11 @@ interface UIState {
   setMapColorThreshold: (value: number) => void;
   setSidebarTab: (tab: SidebarTab) => void;
   setHoveredGroupTag: (tag: string | null) => void;
+  setCustomClusterColor: (tag: string, color: string) => void;
   openSettings: () => void;
   closeSettings: () => void;
+  exitLanding: () => void;
+  triggerPageSlideUp: () => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -40,6 +46,9 @@ export const useUIStore = create<UIState>()(
       sidebarTab: 'notes' as SidebarTab,
       settingsOpen: false,
       hoveredGroupTag: null,
+      customClusterColors: {},
+      landingMode: true,
+      showPageSlideUp: false,
 
       toggleDarkMode: () =>
         set((state) => {
@@ -63,13 +72,32 @@ export const useUIStore = create<UIState>()(
 
       setHoveredGroupTag: (tag) => set({ hoveredGroupTag: tag }),
       setSidebarTab: (tab) => set({ sidebarTab: tab }),
+
+      setCustomClusterColor: (tag, color) =>
+        set((state) => ({
+          customClusterColors: { ...state.customClusterColors, [tag]: color },
+        })),
+
       openSettings: () => set({ settingsOpen: true }),
       closeSettings: () => set({ settingsOpen: false }),
+
+      exitLanding: () =>
+        set({ landingMode: false, sidebarOpen: true, currentView: 'editor' as View }),
+
+      triggerPageSlideUp: () => {
+        set({ showPageSlideUp: true });
+        // Start animation after brief delay to ensure initial state is registered
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            set({ showPageSlideUp: false });
+          });
+        });
+      },
     }),
     {
       name: 'neural-zettel-ui',
       partialize: (state) => {
-        const { hoveredGroupTag: _, ...rest } = state;
+        const { hoveredGroupTag: _, landingMode: _l, showPageSlideUp: _s, ...rest } = state;
         return rest;
       },
     }

@@ -24,6 +24,15 @@
   --ink-medium: #5a3a1a;
 }
 
+/* Landing overlay bounce animation */
+@keyframes bounce-arrow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(12px); }
+}
+.animate-bounce-arrow {
+  animation: bounce-arrow 2s ease-in-out infinite;
+}
+
 html, body, #root {
   height: 100%;
   margin: 0;
@@ -490,6 +499,40 @@ body {
   background:
     repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.03) 3px, rgba(0,0,0,0.03) 4px),
     linear-gradient(180deg, #4a2610 0%, #5a3418 40%, #4a2610 60%, #522c12 100%);
+}
+
+/* ── Book pile layout (same spine books rotated 90° and stacked) ── */
+
+.book-pile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0;
+}
+
+.book-pile > div {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+/* Override the fixed w/h classes — after rotation, height becomes the visual
+   width so we set it to fill the sidebar, and width becomes the visual
+   thickness so we use a uniform slim value. */
+.book-pile .shelf-book {
+  transform: rotate(90deg);
+  /* Use the height value (becomes visual width after rotate) to fill sidebar */
+  height: 260px !important;
+  width: 34px !important;
+  margin: -110px 0;
+}
+
+.book-pile .shelf-book:hover {
+  transform: rotate(90deg) translateY(-6px);
+}
+
+.book-pile .shelf-book.active {
+  transform: rotate(90deg) translateY(-8px);
 }
 
 .bookshelf-header {

@@ -21,7 +21,7 @@ export function Sidebar() {
                   : 'text-[#b8a88a] hover:text-[#d4a574]'
               }`}
             >
-              {tab === 'notes' ? 'Notes' : 'Groupings'}
+              {tab === 'notes' ? 'Books' : 'Shelves'}
             </button>
           ))}
         </div>

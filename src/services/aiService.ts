@@ -428,31 +428,31 @@ export const aiService = {
     }
   },
 
-  async searchKnowledge(query: string, notes: Array<{ id: string; title: string; content: string; tags: string[] }>): Promise<string> {
+  async searchKnowledge(query: string, notes: Array<{ id: string; title: string; content: string; tags: string[] }>): Promise<{ answer: string; citedNotes: Array<{ index: number; id: string; title: string }> }> {
     if (!hasValidApiKey(GEMINI_API_KEY)) {
       throw new Error('API key required for Conversational Knowledge Search');
     }
 
     try {
-      // Prepare note context for the prompt
-      const noteContext = notes.slice(0, 20).map((note, idx) =>
-        `[${idx + 1}] "${note.title}" (Tags: ${note.tags.join(', ')})\n${note.content.slice(0, 200)}${note.content.length > 200 ? '...' : ''}`
+      // Prepare note context — send full content (up to 500 chars) for all notes
+      const noteContext = notes.map((note, idx) =>
+        `[${idx + 1}] "${note.title}" (Tags: ${note.tags.join(', ')})\n${note.content.slice(0, 500)}${note.content.length > 500 ? '...' : ''}`
       ).join('\n\n');
 
       const prompt = [
-        'You are a conversational knowledge search assistant. The user has a personal knowledge base of notes.',
+        'You are a knowledge search assistant for a personal note-taking app.',
+        '',
+        'STRICT RULES:',
+        '- Answer ONLY using information found in the notes below. Do NOT use any outside knowledge.',
+        '- If the notes do not contain enough information to answer, say: "I couldn\'t find information about that in your notes."',
+        '- Cite notes using [1], [2], etc. Every claim must have a citation.',
+        '- Be clear and concise. Keep your answer to 2-4 short paragraphs maximum.',
+        '- Do NOT add information beyond what the notes say.',
         '',
         `User Question: "${query}"`,
         '',
-        'Task: Answer the user\'s question using ONLY the information from their notes below.',
-        'If the answer cannot be found in the notes, say so clearly.',
-        'Cite specific notes using [1], [2] notation.',
-        'Be conversational and helpful, not robotic.',
-        '',
-        `Available Notes (${notes.length} total, showing first 20):`,
+        `Notes (${notes.length} total):`,
         noteContext,
-        '',
-        'Your response:',
       ].join('\n');
 
       const response = await fetch(getGeminiEndpoint(GEMINI_MODEL), {
@@ -470,7 +470,7 @@ export const aiService = {
           ],
           generationConfig: {
             temperature: 0.3,
-            maxOutputTokens: 1024,
+            maxOutputTokens: 2048,
           },
         }),
       });
@@ -487,7 +487,24 @@ export const aiService = {
         throw new Error('No response from AI');
       }
 
-      return answer.trim();
+      // Extract cited note indices from the response
+      const citationPattern = /\[(\d+)\]/g;
+      const citedIndices = new Set<number>();
+      let match;
+      while ((match = citationPattern.exec(answer)) !== null) {
+        const idx = parseInt(match[1], 10);
+        if (idx >= 1 && idx <= notes.length) {
+          citedIndices.add(idx);
+        }
+      }
+
+      const citedNotes = [...citedIndices].sort((a, b) => a - b).map((idx) => ({
+        index: idx,
+        id: notes[idx - 1].id,
+        title: notes[idx - 1].title,
+      }));
+
+      return { answer: answer.trim(), citedNotes };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Search failed';
       throw new Error(`Knowledge Search error: ${message}`);

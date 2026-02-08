@@ -97,108 +97,96 @@ export function NoteEditor({ note }: NoteEditorProps) {
     [note.id, updateNote]
   );
 
-  return (
-    <div className="flex flex-col h-full bg-[#1a1612]">
-      {/* Header */}
-      <div className="flex-shrink-0 border-b-2 border-[#d4a574]/30 px-6 py-4 bg-[#1a0f0a]">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-3 flex-1">
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Untitled Manuscript..."
-              className="text-xl font-serif font-bold bg-transparent focus:outline-none text-[#e8dcc4] flex-1 placeholder-[#b8a88a]/50"
-            />
-            <div className="relative color-picker-container">
-              <button
-                onClick={() => setShowColorPicker(!showColorPicker)}
-                className="w-8 h-8 rounded-full border-2 border-[#d4a574]/50 hover:border-[#d4a574] transition-colors shadow-md"
-                style={{
-                  background: [
-                    'linear-gradient(90deg, #4a3426 0%, #5a4436 50%, #4a3426 100%)',
-                    'linear-gradient(90deg, #2d4a3a 0%, #3d5a4a 50%, #2d4a3a 100%)',
-                    'linear-gradient(90deg, #3a2a4a 0%, #4a3a5a 50%, #3a2a4a 100%)',
-                    'linear-gradient(90deg, #4a3a2a 0%, #5a4a3a 50%, #4a3a2a 100%)',
-                    'linear-gradient(90deg, #1a2a3a 0%, #2a3a4a 50%, #1a2a3a 100%)',
-                    'linear-gradient(90deg, #5b3413 0%, #6b4423 50%, #5b3413 100%)',
-                  ][note.bookColor ?? (note.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 6)]
-                }}
-              />
-              {showColorPicker && (
-                <div className="absolute top-full mt-2 right-0 bg-[#2d1f14] border-2 border-[#d4a574]/50 rounded-lg p-3 shadow-xl z-50 flex gap-2">
-                  {[0, 1, 2, 3, 4, 5].map((colorIdx) => (
-                    <button
-                      key={colorIdx}
-                      onClick={() => handleColorChange(colorIdx)}
-                      className="w-8 h-8 rounded-full border-2 border-[#d4a574]/30 hover:border-[#d4a574] hover:scale-110 transition-all"
-                      style={{
-                        background: [
-                          'linear-gradient(90deg, #4a3426 0%, #5a4436 50%, #4a3426 100%)',
-                          'linear-gradient(90deg, #2d4a3a 0%, #3d5a4a 50%, #2d4a3a 100%)',
-                          'linear-gradient(90deg, #3a2a4a 0%, #4a3a5a 50%, #3a2a4a 100%)',
-                          'linear-gradient(90deg, #4a3a2a 0%, #5a4a3a 50%, #4a3a2a 100%)',
-                          'linear-gradient(90deg, #1a2a3a 0%, #2a3a4a 50%, #1a2a3a 100%)',
-                          'linear-gradient(90deg, #5b3413 0%, #6b4423 50%, #5b3413 100%)',
-                        ][colorIdx]
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-3 ml-6">
-            {isSaving && (
-              <span className="text-xs text-[#d4a574] font-serif italic">Saving...</span>
-            )}
-            <Button variant="danger" size="sm" onClick={handleDelete}>
-              Delete
-            </Button>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex-1 space-y-2">
-            <TagInput tags={tags} onChange={handleTagChange} />
-            {note.autoTags && note.autoTags.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5 text-xs text-[#b8a88a]">
-                <span className="text-[10px] uppercase tracking-wide font-serif">Suggested tags</span>
-                {note.autoTags.map((tag) => {
-                  const isSelected = tags.includes(tag);
-                  return (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => handleSuggestedTagClick(tag)}
-                      className={`inline-flex items-center px-2 py-0.5 text-[10px] font-serif rounded border transition-colors ${
-                        isSelected
-                          ? 'border-[#d4a574] bg-[#d4a574]/20 text-[#d4a574]'
-                          : 'border-[#d4a574]/50 text-[#d4a574] hover:border-[#d4a574]'
-                      }`}
-                      title={isSelected ? 'Already added' : 'Add tag'}
-                    >
-                      {tag}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+  const bookColors = [
+    'linear-gradient(90deg, #4a3426 0%, #5a4436 50%, #4a3426 100%)',
+    'linear-gradient(90deg, #2d4a3a 0%, #3d5a4a 50%, #2d4a3a 100%)',
+    'linear-gradient(90deg, #3a2a4a 0%, #4a3a5a 50%, #3a2a4a 100%)',
+    'linear-gradient(90deg, #4a3a2a 0%, #5a4a3a 50%, #4a3a2a 100%)',
+    'linear-gradient(90deg, #1a2a3a 0%, #2a3a4a 50%, #1a2a3a 100%)',
+    'linear-gradient(90deg, #5b3413 0%, #6b4423 50%, #5b3413 100%)',
+  ];
 
-      {/* Editor / Preview */}
+  return (
+    <div className="flex flex-col h-full">
+      {/* Editor / Preview — metadata lives on the pages */}
       <div className="flex-1 overflow-hidden relative">
         <div className="book-binding-shadow"></div>
         <Allotment>
           <Allotment.Pane>
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Begin your manuscript..."
-              className="w-full h-full px-12 py-8 book-page book-page-left text-[#3d2817] font-serif text-sm leading-loose resize-none focus:outline-none placeholder-[#8b7355]/40"
-              style={{ color: '#3d2817' }}
-            />
+            <div className="w-full h-full book-page book-page-left flex flex-col overflow-hidden">
+              {/* Title + color + delete on top of the left page */}
+              <div className="flex-shrink-0 px-8 pt-6 pb-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Untitled Manuscript..."
+                    className="text-xl font-serif font-bold bg-transparent focus:outline-none text-[#3d2817] flex-1 placeholder-[#8b7355]/40"
+                  />
+                  <div className="relative color-picker-container">
+                    <button
+                      onClick={() => setShowColorPicker(!showColorPicker)}
+                      className="w-6 h-6 rounded-full border-2 border-[#8b7355]/40 hover:border-[#8b7355] transition-colors shadow-sm"
+                      style={{
+                        background: bookColors[note.bookColor ?? (note.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 6)]
+                      }}
+                    />
+                    {showColorPicker && (
+                      <div className="absolute top-full mt-2 right-0 bg-[#f5e6c8] border-2 border-[#8b7355]/40 rounded-lg p-2 shadow-xl z-50 flex gap-1.5">
+                        {bookColors.map((bg, colorIdx) => (
+                          <button
+                            key={colorIdx}
+                            onClick={() => handleColorChange(colorIdx)}
+                            className="w-6 h-6 rounded-full border-2 border-[#8b7355]/30 hover:border-[#8b7355] hover:scale-110 transition-all"
+                            style={{ background: bg }}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {isSaving && (
+                    <span className="text-[10px] text-[#8b7355] font-serif italic">Saving...</span>
+                  )}
+                  <Button variant="danger" size="sm" onClick={handleDelete}>
+                    Delete
+                  </Button>
+                </div>
+                <TagInput tags={tags} onChange={handleTagChange} />
+                {note.autoTags && note.autoTags.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs text-[#8b7355] mt-1.5">
+                    <span className="text-[10px] uppercase tracking-wide font-serif">Suggested</span>
+                    {note.autoTags.map((tag) => {
+                      const isSelected = tags.includes(tag);
+                      return (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => handleSuggestedTagClick(tag)}
+                          className={`inline-flex items-center px-2 py-0.5 text-[10px] font-serif rounded border transition-colors ${
+                            isSelected
+                              ? 'border-[#8b7355] bg-[#8b7355]/20 text-[#5a3a1a]'
+                              : 'border-[#8b7355]/50 text-[#5a3a1a] hover:border-[#8b7355]'
+                          }`}
+                          title={isSelected ? 'Already added' : 'Add tag'}
+                        >
+                          {tag}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                <div className="border-b border-[#8b7355]/20 mt-3"></div>
+              </div>
+              {/* Textarea fills rest of the page */}
+              <textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="Begin your manuscript..."
+                className="flex-1 w-full px-8 py-4 bg-transparent text-[#3d2817] font-serif text-sm leading-loose resize-none focus:outline-none placeholder-[#8b7355]/40"
+                style={{ color: '#3d2817' }}
+              />
+            </div>
           </Allotment.Pane>
           <Allotment.Pane>
             <div className="h-full overflow-y-auto book-page book-page-right px-12 py-8">

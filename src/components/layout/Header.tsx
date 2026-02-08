@@ -11,9 +11,16 @@ export function Header() {
   const setView = useUIStore((s) => s.setView);
   const settingsOpen = useUIStore((s) => s.settingsOpen);
   const openSettings = useUIStore((s) => s.openSettings);
+  const triggerPageSlideUp = useUIStore((s) => s.triggerPageSlideUp);
+  const landingMode = useUIStore((s) => s.landingMode);
+  const exitLanding = useUIStore((s) => s.exitLanding);
 
   const handleNewNote = () => {
     createNote({ title: 'Untitled', content: '', tags: [] });
+    if (currentView === 'graph') {
+      triggerPageSlideUp();
+    }
+    setView('editor');
   };
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -51,7 +58,10 @@ export function Header() {
         </h1>
         <div className="flex items-center gap-1 ml-4">
           <button
-            onClick={() => setView('editor')}
+            onClick={() => {
+              if (landingMode) exitLanding();
+              setView('editor');
+            }}
             className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
               currentView === 'editor'
                 ? 'bg-[#d4a574] text-[#1a0f0a]'
@@ -61,7 +71,10 @@ export function Header() {
             Editor
           </button>
           <button
-            onClick={() => setView('graph')}
+            onClick={() => {
+              if (landingMode) exitLanding();
+              setView('graph');
+            }}
             className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
               currentView === 'graph'
                 ? 'bg-[#d4a574] text-[#1a0f0a]'
@@ -71,7 +84,10 @@ export function Header() {
             Map
           </button>
           <button
-            onClick={() => setView('search')}
+            onClick={() => {
+              if (landingMode) exitLanding();
+              setView('search');
+            }}
             className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
               currentView === 'search'
                 ? 'bg-[#d4a574] text-[#1a0f0a]'
@@ -81,7 +97,10 @@ export function Header() {
             Search
           </button>
           <button
-            onClick={() => setView('temporal')}
+            onClick={() => {
+              if (landingMode) exitLanding();
+              setView('temporal');
+            }}
             className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
               currentView === 'temporal'
                 ? 'bg-[#d4a574] text-[#1a0f0a]'

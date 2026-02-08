@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNoteStore } from '@/stores/noteStore.ts';
+import { useUIStore } from '@/stores/uiStore.ts';
 import { NoteListItem } from './NoteListItem.tsx';
 import { LoadingSpinner, Button } from '@/components/common/index.ts';
 
@@ -9,6 +10,9 @@ export function NoteList() {
   const setActiveNote = useNoteStore((s) => s.setActiveNote);
   const isLoading = useNoteStore((s) => s.isLoading);
   const deleteNote = useNoteStore((s) => s.deleteNote);
+  const currentView = useUIStore((s) => s.currentView);
+  const setView = useUIStore((s) => s.setView);
+  const triggerPageSlideUp = useUIStore((s) => s.triggerPageSlideUp);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectionMode, setSelectionMode] = useState(false);
 
@@ -117,7 +121,7 @@ export function NoteList() {
           ) : (
             <>
               <span className="text-[11px] font-serif text-[#b8a88a]">
-                {notes.length} note{notes.length === 1 ? '' : 's'}
+                {notes.length} book{notes.length === 1 ? '' : 's'}
               </span>
               <Button
                 variant="ghost"
@@ -131,17 +135,25 @@ export function NoteList() {
           )}
         </div>
       )}
-      {notes.map((note) => (
-        <NoteListItem
-          key={note.id}
-          note={note}
-          isActive={note.id === activeNoteId}
-          onClick={() => setActiveNote(note.id)}
-          selectable={selectionMode}
-          selected={selectionMode ? selectedIds.has(note.id) : false}
-          onSelectToggle={selectionMode ? (checked) => toggleSelect(note.id, checked) : undefined}
-        />
-      ))}
+      <div className="book-pile">
+        {notes.map((note) => (
+          <NoteListItem
+            key={note.id}
+            note={note}
+            isActive={note.id === activeNoteId}
+            onClick={() => {
+              setActiveNote(note.id);
+              if (currentView !== 'editor') {
+                triggerPageSlideUp();
+                setView('editor');
+              }
+            }}
+            selectable={selectionMode}
+            selected={selectionMode ? selectedIds.has(note.id) : false}
+            onSelectToggle={selectionMode ? (checked) => toggleSelect(note.id, checked) : undefined}
+          />
+        ))}
+      </div>
     </div>
   );
 }
