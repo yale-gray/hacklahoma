@@ -663,7 +663,7 @@ export const aiService = {
 
   async extractContent(
     source: string,
-    type: 'url' | 'text',
+    type: 'url' | 'text' | 'pdf',
     existingNotes: Array<{ id: string; title: string; content: string; tags: string[] }>
   ): Promise<ExtractedContent> {
     if (!hasValidApiKey(GEMINI_API_KEY)) {
@@ -671,8 +671,29 @@ export const aiService = {
     }
 
     try {
-      // For URLs, we'd need to fetch content first (simplified here)
-      const contentToAnalyze = type === 'text' ? source : source;
+      // Fetch content from URL if needed
+      let contentToAnalyze = source;
+      if (type === 'url') {
+        try {
+          const urlResponse = await fetch(source);
+          if (!urlResponse.ok) {
+            throw new Error(`Failed to fetch URL: ${urlResponse.status}`);
+          }
+          const html = await urlResponse.text();
+          // Extract text from HTML (basic extraction - removes scripts and styles)
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = html;
+          // Remove script and style elements
+          tempDiv.querySelectorAll('script, style, nav, footer, header').forEach(el => el.remove());
+          contentToAnalyze = tempDiv.textContent || tempDiv.innerText || '';
+        } catch (fetchErr) {
+          const errorMsg = fetchErr instanceof Error ? fetchErr.message : 'Unknown error';
+          if (errorMsg.includes('CORS') || errorMsg.includes('Failed to fetch')) {
+            throw new Error('URL blocked by CORS policy. Try copying and pasting the article text instead.');
+          }
+          throw new Error(`Could not fetch URL: ${errorMsg}`);
+        }
+      }
 
       const noteContext = existingNotes.slice(0, 20).map(note =>
         `"${note.title}" (Tags: ${note.tags.join(', ')})`

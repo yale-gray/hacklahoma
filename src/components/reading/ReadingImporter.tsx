@@ -1,30 +1,113 @@
 import { useState } from 'react';
 import { useNoteStore } from '@/stores/noteStore';
+import { useUIStore } from '@/stores/uiStore';
 import { aiService, type ExtractedContent } from '@/services/aiService';
 import { Button } from '@/components/common';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configure PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 export function ReadingImporter() {
   const notes = useNoteStore((s) => s.notes);
   const createNote = useNoteStore((s) => s.createNote);
   const setActiveNote = useNoteStore((s) => s.setActiveNote);
-  const setView = useNoteStore((s) => s.setView);
+  const setView = useUIStore((s) => s.setView);
 
-  const [inputType, setInputType] = useState<'text' | 'url'>('text');
+  const [inputType, setInputType] = useState<'text' | 'url' | 'pdf'>('text');
   const [input, setInput] = useState('');
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [extracted, setExtracted] = useState<ExtractedContent | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const extractTextFromPDF = async (file: File): Promise<string> => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let fullText = '';
+
+    // Limit to first 20 pages for faster processing
+    const maxPages = Math.min(pdf.numPages, 20);
+
+    for (let i = 1; i <= maxPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+
+      // Preserve formatting by analyzing position and font size
+      let lastY = 0;
+      let lastFontSize = 0;
+      let pageText = '';
+
+      textContent.items.forEach((item: any, index: number) => {
+        const str = item.str;
+        const transform = item.transform;
+        const fontSize = Math.abs(transform[3]); // Vertical scale indicates font size
+        const y = transform[5]; // Y position
+
+        // Detect vertical gap (new paragraph)
+        const verticalGap = Math.abs(lastY - y);
+
+        if (index > 0) {
+          // Large vertical gap = new paragraph
+          if (verticalGap > fontSize * 1.5) {
+            pageText += '\n\n';
+          }
+          // Regular line break
+          else if (verticalGap > fontSize * 0.5) {
+            pageText += '\n';
+          }
+          // Same line - add space if needed
+          else if (!str.startsWith(' ') && !pageText.endsWith(' ') && !pageText.endsWith('\n')) {
+            pageText += ' ';
+          }
+        }
+
+        // Detect heading (larger font size)
+        if (fontSize > lastFontSize * 1.2 && lastFontSize > 0) {
+          pageText += '\n\n## '; // Markdown heading
+        }
+
+        pageText += str;
+        lastY = y;
+        lastFontSize = fontSize;
+      });
+
+      fullText += pageText.trim() + '\n\n---\n\n'; // Page separator
+
+      // Show progress
+      if (i % 5 === 0 || i === maxPages) {
+        setError(`Extracting PDF... Page ${i}/${maxPages}`);
+      }
+    }
+
+    setError(null); // Clear progress message
+    return fullText.trim();
+  };
+
   const handleExtract = async () => {
-    if (!input.trim()) return;
+    if (inputType === 'pdf') {
+      if (!pdfFile) {
+        setError('Please select a PDF file');
+        return;
+      }
+    } else if (!input.trim()) {
+      return;
+    }
 
     setIsProcessing(true);
     setError(null);
     setExtracted(null);
 
     try {
+      let contentToExtract = input.trim();
+
+      // Extract text from PDF if needed
+      if (inputType === 'pdf' && pdfFile) {
+        contentToExtract = await extractTextFromPDF(pdfFile);
+      }
+
       const result = await aiService.extractContent(
-        input.trim(),
+        contentToExtract,
         inputType,
         notes.map(n => ({
           id: n.id,
@@ -83,6 +166,7 @@ export function ReadingImporter() {
 
       // Reset form
       setInput('');
+      setPdfFile(null);
       setExtracted(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create note');
@@ -131,12 +215,29 @@ export function ReadingImporter() {
             </svg>
             URL
           </button>
+          <button
+            onClick={() => setInputType('pdf')}
+            className={`flex-1 px-4 py-2 rounded text-sm font-medium transition-colors ${
+              inputType === 'pdf'
+                ? 'bg-[#d4a574] text-[#1a0f0a]'
+                : 'bg-[#2d1f14] text-[#d4a574] border border-[#d4a574]/30 hover:bg-[#3d2f24]'
+            }`}
+          >
+            <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+            PDF
+          </button>
         </div>
 
         {/* Input Area */}
         <div>
           <label className="block text-xs font-semibold text-[#d4a574] mb-2">
-            {inputType === 'text' ? 'Paste article, highlights, or notes:' : 'Enter article URL:'}
+            {inputType === 'text'
+              ? 'Paste article, highlights, or notes:'
+              : inputType === 'url'
+              ? 'Enter article URL:'
+              : 'Upload PDF file:'}
           </label>
           {inputType === 'text' ? (
             <textarea
@@ -146,14 +247,38 @@ export function ReadingImporter() {
               rows={8}
               className="w-full px-4 py-3 bg-[#2d1f14] border border-[#d4a574]/30 rounded text-[#e8dcc4] placeholder-[#8b7355] focus:outline-none focus:border-[#d4a574] transition-colors font-serif text-sm"
             />
+          ) : inputType === 'url' ? (
+            <div className="space-y-2">
+              <input
+                type="url"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="https://example.com/article"
+                className="w-full px-4 py-3 bg-[#2d1f14] border border-[#d4a574]/30 rounded text-[#e8dcc4] placeholder-[#8b7355] focus:outline-none focus:border-[#d4a574] transition-colors font-serif text-sm"
+              />
+              <p className="text-xs text-[#8b7355] italic">
+                Note: Some URLs may be blocked by CORS. If it fails, try copying the text or uploading a PDF instead.
+              </p>
+            </div>
           ) : (
-            <input
-              type="url"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="https://example.com/article"
-              className="w-full px-4 py-3 bg-[#2d1f14] border border-[#d4a574]/30 rounded text-[#e8dcc4] placeholder-[#8b7355] focus:outline-none focus:border-[#d4a574] transition-colors font-serif text-sm"
-            />
+            <div className="space-y-2">
+              <input
+                type="file"
+                accept=".pdf"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setPdfFile(file);
+                  }
+                }}
+                className="w-full px-4 py-3 bg-[#2d1f14] border border-[#d4a574]/30 rounded text-[#e8dcc4] file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-[#d4a574] file:text-[#1a0f0a] hover:file:bg-[#e8b68a] cursor-pointer"
+              />
+              {pdfFile && (
+                <p className="text-xs text-[#b8a890]">
+                  Selected: {pdfFile.name}
+                </p>
+              )}
+            </div>
           )}
         </div>
 
@@ -162,7 +287,7 @@ export function ReadingImporter() {
           variant="primary"
           size="sm"
           loading={isProcessing}
-          disabled={!input.trim() || isProcessing}
+          disabled={(inputType === 'pdf' ? !pdfFile : !input.trim()) || isProcessing}
           className="w-full"
         >
           {isProcessing ? 'Analyzing...' : 'Extract & Link'}

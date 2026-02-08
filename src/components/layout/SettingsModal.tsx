@@ -7,18 +7,23 @@ export function SettingsModal() {
   const closeSettings = useUIStore((s) => s.closeSettings);
   const groupingMinSize = useUIStore((s) => s.groupingMinSize);
   const setGroupingMinSize = useUIStore((s) => s.setGroupingMinSize);
+  const mapColorThreshold = useUIStore((s) => s.mapColorThreshold);
+  const setMapColorThreshold = useUIStore((s) => s.setMapColorThreshold);
   const [localMinSize, setLocalMinSize] = useState(groupingMinSize);
+  const [localColorThreshold, setLocalColorThreshold] = useState(mapColorThreshold);
 
   useEffect(() => {
     if (settingsOpen) {
       setLocalMinSize(groupingMinSize);
+      setLocalColorThreshold(mapColorThreshold);
     }
-  }, [settingsOpen, groupingMinSize]);
+  }, [settingsOpen, groupingMinSize, mapColorThreshold]);
 
   if (!settingsOpen) return null;
 
   const handleSave = () => {
     setGroupingMinSize(localMinSize);
+    setMapColorThreshold(localColorThreshold);
     closeSettings();
   };
 
@@ -59,6 +64,22 @@ export function SettingsModal() {
               min={1}
               value={localMinSize}
               onChange={(e) => setLocalMinSize(Number(e.target.value))}
+              className="w-full px-3 py-2 text-sm font-serif rounded bg-[#1a1612] border-2 border-[#d4a574]/30 focus:outline-none focus:ring-2 focus:ring-[#d4a574] focus:border-[#d4a574] text-[#e8dcc4] shadow-inner"
+            />
+          </div>
+          <div>
+            <label htmlFor="map-color-threshold" className="block text-xs font-serif uppercase tracking-wide text-[#d4a574] mb-2">
+              Map Color Threshold
+            </label>
+            <p className="text-xs text-[#b8a88a] mt-1 mb-3 font-serif">
+              When a tag connects this many notes on the map, the cluster is highlighted with a unique color.
+            </p>
+            <input
+              id="map-color-threshold"
+              type="number"
+              min={2}
+              value={localColorThreshold}
+              onChange={(e) => setLocalColorThreshold(Number(e.target.value))}
               className="w-full px-3 py-2 text-sm font-serif rounded bg-[#1a1612] border-2 border-[#d4a574]/30 focus:outline-none focus:ring-2 focus:ring-[#d4a574] focus:border-[#d4a574] text-[#e8dcc4] shadow-inner"
             />
           </div>
